@@ -1,0 +1,5 @@
+{
+  "name": "Amazon Product Compare - Blog Post Generator",
+  "description": "An AI-powered web application to generate comparison blog posts for Amazon products. Users can input product details, provide custom instructions, and generate copy-and-paste ready HTML content for their blogs.",
+  "requestFramePermissions": []
+}
