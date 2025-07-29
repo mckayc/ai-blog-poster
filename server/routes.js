@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { getDb } from './database.js';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -189,7 +190,7 @@ router.post('/api/gemini/generate-post', async (req, res) => {
         - Description: ${p.description}
         - Image URL: ${p.imageUrl}
         - Affiliate Link: ${p.affiliateLink}
-    `).join('\\n');
+    `).join('\n');
 
     const defaultPrompt = `
         You are an expert blog writer specializing in product comparisons for platforms like WordPress and Blogger.
@@ -222,8 +223,8 @@ router.post('/api/gemini/generate-post', async (req, res) => {
     const responseSchema = {
         type: Type.OBJECT,
         properties: {
-            title: { type: Type.STRING },
-            content: { type: Type.STRING }
+            title: { type: Type.STRING, description: "The SEO-friendly title of the blog post." },
+            content: { type: Type.STRING, description: "The full blog post content, formatted in valid HTML." }
         },
         required: ["title", "content"]
     };

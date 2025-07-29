@@ -2,10 +2,10 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: mckayc/ai-blog-poster:latest
     container_name: blog-post-generator-app
     ports:
-      - "8989:3000"
+      - "8983:3000"
     volumes:
       - ./data:/app/data
     restart: unless-stopped
