@@ -183,7 +183,7 @@ const Generator: React.FC = () => {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Blog Post Generator</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Post Generator</h1>
             <p className="text-slate-400">Add products by URL, select a template, and generate your post.</p>
         </div>
          <div className="mt-4 sm:mt-0">
@@ -217,7 +217,7 @@ const Generator: React.FC = () => {
           Add Another Product
         </Button>
         <Button onClick={() => setShowInstructionModal(true)} disabled={isLoading || !apiKeyIsSet}>
-          {isLoading ? 'Generating...' : 'Generate Blog Post'}
+          {isLoading ? 'Generating...' : 'Generate Post'}
         </Button>
       </div>
 

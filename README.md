@@ -1,4 +1,4 @@
-# Amazon Product Compare - Blog Post Generator
+# Post Generator
 
 This is an AI-powered, self-hosted web application to generate comparison blog posts for Amazon products.
 

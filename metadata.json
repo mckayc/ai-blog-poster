@@ -1,5 +1,5 @@
 {
-  "name": "Amazon Product Compare - Post Generator",
+  "name": "Post Generator",
   "description": "An AI-powered tool to generate comparison blog posts for Amazon products, ready to be published on platforms like WordPress or Blogger.",
   "requestFramePermissions": []
 }
