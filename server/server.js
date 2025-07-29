@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
-import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { getDb } from './database.js';
 import apiRoutes from './routes.js';
@@ -20,7 +19,7 @@ getDb().catch(err => {
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json()); // Use express's built-in JSON parser
 
 // API Routes
 app.use('/api', apiRoutes);

@@ -21,3 +21,10 @@ export interface Template {
   name: string;
   prompt: string;
 }
+
+export interface AppSettings {
+  generalInstructions: string;
+  tone: 'friendly' | 'professional' | 'humorous' | 'technical';
+  ctaText: string;
+  footerText: string;
+}

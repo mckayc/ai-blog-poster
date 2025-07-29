@@ -1,4 +1,4 @@
-import { BlogPost, Template } from '../types';
+import { BlogPost, Template, AppSettings } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
@@ -9,15 +9,15 @@ const handleResponse = async (res: Response) => {
 };
 
 // --- Settings Management ---
-export const getSettings = async (): Promise<{ generalSettings: string }> => {
+export const getSettings = async (): Promise<AppSettings> => {
     return fetch('/api/settings').then(handleResponse);
 };
 
-export const saveSettings = async (settings: string): Promise<any> => {
+export const saveSettings = async (settings: AppSettings): Promise<any> => {
     return fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ generalSettings: settings })
+        body: JSON.stringify(settings)
     }).then(handleResponse);
 };
 
@@ -27,21 +27,16 @@ export const getApiKeyStatus = async (): Promise<{ apiKey: string | null }> => {
     return fetch('/api/api-key').then(handleResponse);
 }
 
-export const saveApiKey = async (apiKey: string): Promise<any> => {
-    return fetch('/api/api-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey })
-    }).then(handleResponse);
-};
-
-
 // --- Blog Post Management ---
 export const getPosts = (): Promise<BlogPost[]> => {
     return fetch('/api/posts').then(handleResponse);
 };
 
-export const savePost = (post: BlogPost): Promise<any> => {
+export const getPost = (postId: string): Promise<BlogPost> => {
+    return fetch(`/api/posts/${postId}`).then(handleResponse);
+}
+
+export const savePost = (post: Partial<BlogPost>): Promise<{ success: boolean; id: string }> => {
     return fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

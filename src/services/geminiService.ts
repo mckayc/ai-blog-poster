@@ -1,4 +1,4 @@
-import { Product, Template } from '../types';
+import { Product } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
@@ -27,17 +27,4 @@ export const fetchProductData = async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productUrl })
   }).then(handleResponse);
-};
-
-
-export const generateBlogPost = async (
-    products: Product[], 
-    instructions: string, 
-    templatePrompt: string | null
-): Promise<{ title: string; content: string }> => {
-    return fetch('/api/gemini/generate-post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, instructions, templatePrompt })
-    }).then(handleResponse);
 };

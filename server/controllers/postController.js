@@ -17,6 +17,20 @@ export const getAllPosts = async (req, res) => {
     }
 };
 
+export const getPostById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const post = await postService.getPostById(id);
+        if (post) {
+            res.json(post);
+        } else {
+            res.status(404).json({ message: 'Post not found' });
+        }
+    } catch (error) {
+        handle_error(res, error);
+    }
+};
+
 export const saveOrUpdatePost = async (req, res) => {
     try {
         const postData = req.body;
@@ -37,13 +51,24 @@ export const deletePostById = async (req, res) => {
     }
 };
 
-export const generatePost = async (req, res) => {
+export const generatePostStream = async (req, res) => {
     try {
         const { products, instructions, templatePrompt } = req.body;
-        const result = await geminiService.generateBlogPost(products, instructions, templatePrompt);
-        res.json(result);
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        const stream = await geminiService.generateBlogPostStream(products, instructions, templatePrompt);
+
+        for await (const chunk of stream) {
+            res.write(chunk.text);
+        }
+        res.end();
+
     } catch (error) {
-        handle_error(res, error);
+        console.error("--- STREAMING CONTROLLER ERROR ---");
+        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        res.end(`STREAM_ERROR: ${error.message}`);
     }
 };
 

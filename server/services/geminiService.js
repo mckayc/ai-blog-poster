@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { getDb } from '../database.js';
 
 const getApiKey = () => {
@@ -9,10 +9,17 @@ const getApiKey = () => {
     return apiKey;
 };
 
-const getGeneralSettings = async () => {
+const getSettings = async () => {
     const db = await getDb();
-    const result = await db.get('SELECT value FROM settings WHERE key = ?', 'general_settings');
-    return result?.value || '';
+    const result = await db.get('SELECT value FROM settings WHERE key = ?', 'app_settings');
+    const defaults = {
+        generalInstructions: 'Write in a friendly, conversational tone.',
+        tone: 'friendly',
+        ctaText: 'Check Price',
+        footerText: 'As an affiliate, I earn from qualifying purchases. This does not affect the price you pay.'
+    };
+    const saved = result ? JSON.parse(result.value) : {};
+    return { ...defaults, ...saved };
 }
 
 export const testApiKey = async () => {
@@ -51,69 +58,63 @@ export const fetchProductData = async (productUrl) => {
     return JSON.parse(jsonMatch[0]);
 };
 
-export const generateBlogPost = async (products, instructions, templatePrompt) => {
+
+export const generateBlogPostStream = async (products, instructions, templatePrompt) => {
     const apiKey = getApiKey();
-    const generalSettings = await getGeneralSettings();
+    const settings = await getSettings();
     const ai = new GoogleGenAI({ apiKey });
 
     const productDetails = products.map((p, index) => `
-        Product ${index + 1}:
-        - Title: ${p.title}
-        - Price: ${p.price}
-        - Description: ${p.description}
-        - Image URL: ${p.imageUrl}
-        - Affiliate Link: ${p.affiliateLink}
+      Product ${index + 1}:
+      - Title: ${p.title}
+      - Affiliate Link: ${p.affiliateLink}
+      - Details: ${p.description}
+      - Price: ${p.price}
     `).join('\n');
 
     const defaultPrompt = `
-        You are an expert blog writer specializing in product comparisons for platforms like WordPress and Blogger.
-        Your task is to generate a comprehensive, engaging, and SEO-friendly blog post comparing the following products.
+      You are an expert blog writer. Your output MUST be valid, well-structured HTML.
 
-        **General Writing Style & Instructions from User:**
-        {{GENERAL_SETTINGS}}
+      **CRITICAL OUTPUT RULES:**
+      1.  The VERY FIRST element in the HTML you generate MUST be an \`<h1>\` tag containing a compelling, SEO-friendly title for the post.
+      2.  Whenever you mention a product by its title (or a close variation), you MUST wrap a related call-to-action in an anchor tag (\`<a>\`) with the 'href' attribute set to its corresponding affiliate link. The link text MUST be exactly: "{{CTA_TEXT}}".
+          Example: "The Super-Widget 5000 is great for beginners. <a href="...affiliate_link_here...">{{CTA_TEXT}}</a>"
+          Do NOT just list the links. Integrate them naturally after mentioning the product.
+      3.  The overall tone of the post must be: ${settings.tone}.
+      4.  Structure the post with headings (h2, h3), paragraphs (p), and lists (ul, li). Use bold tags (strong) for emphasis.
+      5.  Include a detailed comparison, pros and cons, and a final recommendation.
+      6.  Follow all instructions in the 'General Writing Style' and 'Specific Instructions' sections below.
 
-        **Specific Instructions for this post:**
-        {{SPECIFIC_INSTRUCTIONS}}
+      ---
+      **GENERAL WRITING STYLE:**
+      {{GENERAL_SETTINGS}}
+      
+      **SPECIFIC INSTRUCTIONS FOR THIS POST:**
+      {{SPECIFIC_INSTRUCTIONS}}
+      ---
 
-        **Product Information:**
-        {{PRODUCT_DETAILS}}
-
-        **Output Requirements:**
-        1.  Generate a compelling, SEO-friendly title for the blog post.
-        2.  Write the blog post content in HTML format.
-        3.  The HTML should be well-structured with headings (h2, h3), paragraphs (p), lists (ul, li), and bold tags (strong) to highlight key features.
-        4.  Create a detailed comparison, discussing the pros and cons of each product.
-        5.  Incorporate the affiliate links naturally within the text, for example, in a "Check Price" or "Buy Now" context using an anchor tag (<a>). Make sure the affiliate link is the href value. Use the product title or a call to action as the link text.
-        6.  Conclude with a summary and a recommendation for different types of buyers.
-        7.  The tone should be helpful, informative, and persuasive.
+      **PRODUCT INFORMATION TO USE:**
+      {{PRODUCT_DETAILS}}
+      
+      ---
+      **FINAL STEP: FOOTER**
+      After the entire blog post content is written, append the following footer text. It must be the absolute last part of the output. Wrap it in a paragraph tag with a 'footer-disclaimer' class like this: <p class="footer-disclaimer">{{FOOTER_TEXT}}</p>
     `;
     
     let finalPrompt = (templatePrompt || defaultPrompt)
         .replace('{{PRODUCT_DETAILS}}', productDetails)
-        .replace('{{GENERAL_SETTINGS}}', generalSettings || 'No general instructions provided.')
-        .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.');
+        .replace('{{GENERAL_SETTINGS}}', settings.generalInstructions || 'No general instructions provided.')
+        .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.')
+        .replace(/\{\{CTA_TEXT\}\}/g, settings.ctaText || 'Check Price')
+        .replace('{{FOOTER_TEXT}}', settings.footerText || '');
     
-    console.log('--- FINAL PROMPT SENT TO GEMINI ---');
+    console.log('--- FINAL PROMPT SENT TO GEMINI (STREAM) ---');
     console.log(finalPrompt);
 
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-            title: { type: Type.STRING, description: "The SEO-friendly title of the blog post." },
-            content: { type: Type.STRING, description: "The full blog post content, formatted in valid HTML." }
-        },
-        required: ["title", "content"]
-    };
-
-    const response = await ai.models.generateContent({
+    const response = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
-        contents: finalPrompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: responseSchema
-        }
+        contents: finalPrompt
     });
     
-    const jsonText = response.text.trim();
-    return JSON.parse(jsonText);
+    return response;
 };

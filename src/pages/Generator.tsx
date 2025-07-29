@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
-import { Product, BlogPost, Template } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { Product, Template } from '../types';
 import * as db from '../services/dbService';
-import { generateBlogPost, fetchProductData } from '../services/geminiService';
+import { fetchProductData } from '../services/geminiService';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
@@ -89,37 +89,12 @@ const InstructionModal: React.FC<{ onGenerate: (instructions: string) => void; o
         <Textarea label="Instructions" id="specific-instructions" value={instructions} onChange={e => setInstructions(e.target.value)} rows={4} />
         <div className="mt-6 flex justify-end space-x-3">
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button onClick={() => onGenerate(instructions)}>Generate Blog Post</Button>
+          <Button onClick={() => onGenerate(instructions)}>Generate Post & Edit</Button>
         </div>
       </Card>
     </div>
   );
 };
-
-const ResultModal: React.FC<{ post: BlogPost; onClose: () => void; }> = ({ post, onClose }) => {
-  const [copied, setCopied] = useState(false);
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(post.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <h2 className="text-2xl font-bold text-white mb-4 flex-shrink-0">{post.title}</h2>
-        <div className="prose prose-invert bg-slate-900 p-4 rounded-md overflow-y-auto flex-grow min-h-0" dangerouslySetInnerHTML={{ __html: post.content }}/>
-        <div className="mt-6 flex justify-between items-center flex-shrink-0">
-          <Button onClick={copyToClipboard}>
-            {copied ? 'Copied HTML!' : 'Copy HTML to Clipboard'}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>Close</Button>
-        </div>
-      </Card>
-    </div>
-  );
-};
-
 
 const Generator: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([{ id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
@@ -128,8 +103,8 @@ const Generator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
-  const [generatedPost, setGeneratedPost] = useState<BlogPost | null>(null);
   const [apiKeyIsSet, setApiKeyIsSet] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     db.getTemplates().then(setTemplates).catch(console.error);
@@ -160,19 +135,36 @@ const Generator: React.FC = () => {
       setIsLoading(false);
       return;
     }
-    const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+    
+    // Validate products have at least a title
+    if(products.some(p => !p.title.trim())) {
+        setError("All products must have a title. Please fetch data or enter titles manually.");
+        setIsLoading(false);
+        return;
+    }
 
     try {
-      const result = await generateBlogPost(products, instructions, selectedTemplate?.prompt ?? null);
-      const newPost: BlogPost = {
-        id: generateUUID(),
-        title: result.title,
-        content: result.content,
+      const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+      const newPostData = {
         products: products,
-        createdAt: new Date().toISOString()
+        title: `New Post - ${new Date().toLocaleDateString()}`,
+        content: '', // Start with empty content
       };
-      await db.savePost(newPost);
-      setGeneratedPost(newPost);
+      
+      const response = await db.savePost(newPostData);
+
+      if (response.id) {
+          const params = new URLSearchParams();
+          params.set('new', 'true');
+          params.set('instructions', instructions);
+          if (selectedTemplate) {
+            params.set('templateId', selectedTemplate.id);
+          }
+          navigate(`/edit/${response.id}?${params.toString()}`);
+      } else {
+          throw new Error("Failed to create a new post on the server.");
+      }
+
     } catch (e: any) {
       setError(e.message || "An unknown error occurred.");
     } finally {
@@ -185,7 +177,7 @@ const Generator: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
             <h1 className="text-3xl font-bold text-white mb-2">Post Generator</h1>
-            <p className="text-slate-400">Add products by URL, select a template, and generate your post.</p>
+            <p className="text-slate-400">Add products, select a template, and generate your post.</p>
         </div>
          <div className="mt-4 sm:mt-0">
             <label htmlFor="template-select" className="block text-sm font-medium text-slate-300 mb-1">
@@ -218,7 +210,7 @@ const Generator: React.FC = () => {
           Add Another Product
         </Button>
         <Button onClick={() => setShowInstructionModal(true)} disabled={isLoading || !apiKeyIsSet}>
-          {isLoading ? 'Generating...' : 'Generate Post'}
+          {isLoading ? 'Preparing...' : 'Generate Post'}
         </Button>
       </div>
 
@@ -228,7 +220,7 @@ const Generator: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h3 className="text-lg font-semibold text-red-300">Generation Failed</h3>
+                <h3 className="text-lg font-semibold text-red-300">Error</h3>
             </div>
             <pre className="text-red-300 text-sm whitespace-pre-wrap break-words font-mono bg-slate-900 p-4 rounded-md">
               {error}
@@ -237,7 +229,6 @@ const Generator: React.FC = () => {
       )}
       
       {showInstructionModal && <InstructionModal onGenerate={handleGenerate} onCancel={() => setShowInstructionModal(false)} />}
-      {generatedPost && <ResultModal post={generatedPost} onClose={() => setGeneratedPost(null)} />}
 
     </div>
   );
