@@ -24,7 +24,7 @@ const Sidebar: React.FC = () => {
           </li>
           <li className="mt-2">
             <NavLink to="/generator" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
-              Blog Post Generator
+              Post Generator
             </NavLink>
           </li>
           <li className="mt-2">
