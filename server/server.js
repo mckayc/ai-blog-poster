@@ -2,8 +2,12 @@ import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
 import { getDb } from './database.js';
 import apiRoutes from './routes.js';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,7 +23,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // API Routes
-app.use(apiRoutes);
+app.use('/api', apiRoutes);
 
 // Serve static files from the React app
 const __dirname = path.resolve();

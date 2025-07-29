@@ -1,9 +1,29 @@
-
 import { Router } from 'express';
-import { getDb } from './database.js';
-import { GoogleGenAI, Type } from "@google/genai";
+import * as postController from './controllers/postController.js';
+
+// This is a placeholder for future controllers for other resources.
+// import * as templateController from './controllers/templateController.js';
+// import * as settingsController from './controllers/settingsController.js';
 
 const router = Router();
+
+// --- Post Routes ---
+router.get('/posts', postController.getAllPosts);
+router.post('/posts', postController.saveOrUpdatePost);
+router.delete('/posts/:id', postController.deletePostById);
+
+// --- Gemini API Proxy Routes ---
+router.post('/gemini/generate-post', postController.generatePost);
+router.post('/gemini/fetch-product', postController.fetchProduct);
+router.post('/test-connection', postController.testConnection);
+
+// --- Settings, API Key, and Template routes are omitted for this refactoring pass ---
+// --- but would follow the same controller/service pattern. ---
+
+// For now, we'll keep the non-post routes here for simplicity,
+// but they should be moved to their own controllers as the app grows.
+
+import { getDb } from './database.js';
 
 // Helper to get/set settings
 const getSetting = async (key) => {
@@ -17,8 +37,9 @@ const setSetting = async (key, value) => {
   await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', key, value);
 };
 
+
 // --- Settings and API Key Routes ---
-router.get('/api/settings', async (req, res) => {
+router.get('/settings', async (req, res) => {
   try {
     const generalSettings = await getSetting('general_settings') || '';
     res.json({ generalSettings });
@@ -27,7 +48,7 @@ router.get('/api/settings', async (req, res) => {
   }
 });
 
-router.post('/api/settings', async (req, res) => {
+router.post('/settings', async (req, res) => {
   try {
     const { generalSettings } = req.body;
     await setSetting('general_settings', generalSettings);
@@ -37,52 +58,28 @@ router.post('/api/settings', async (req, res) => {
   }
 });
 
-router.get('/api/api-key', async (req, res) => {
+router.get('/api-key', async (req, res) => {
     try {
-        const apiKey = await getSetting('gemini_api_key');
-        res.json({ apiKey: apiKey ? '********' : null }); // Return placeholder for security
+        const apiKey = process.env.API_KEY;
+        res.json({ apiKey: apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE' ? '********' : null });
     } catch(e) {
         res.status(500).json({ message: 'Failed to check API key' });
     }
 });
 
 
-router.post('/api/api-key', async (req, res) => {
-  try {
-    const { apiKey } = req.body;
-    await setSetting('gemini_api_key', apiKey);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ message: 'Failed to save API key' });
-  }
-});
-
-router.post('/api/test-connection', async (req, res) => {
-    try {
-        const apiKey = await getSetting('gemini_api_key');
-        if (!apiKey) {
-            return res.status(400).json({ success: false, message: 'API Key not set.' });
-        }
-        const ai = new GoogleGenAI({ apiKey });
-        await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: 'Hello',
-        });
-        res.json({ success: true });
-    } catch (e) {
-        console.error("API Test Error:", e.message);
-        res.status(400).json({ success: false, message: 'Connection failed. Please check your API key.' });
-    }
+router.post('/api-key', async (req, res) => {
+  res.status(501).json({ message: 'API Key must be set in the .env file on the server. This endpoint is disabled.'})
 });
 
 // --- Template Routes ---
-router.get('/api/templates', async (req, res) => {
+router.get('/templates', async (req, res) => {
   const db = await getDb();
   const templates = await db.all('SELECT * FROM templates ORDER BY name');
   res.json(templates);
 });
 
-router.post('/api/templates', async (req, res) => {
+router.post('/templates', async (req, res) => {
   const { id, name, prompt } = req.body;
   const db = await getDb();
   if (id) { // Update
@@ -94,167 +91,12 @@ router.post('/api/templates', async (req, res) => {
   res.status(201).json({ success: true });
 });
 
-router.delete('/api/templates/:id', async (req, res) => {
+router.delete('/templates/:id', async (req, res) => {
   const { id } = req.params;
   const db = await getDb();
   await db.run('DELETE FROM templates WHERE id = ?', id);
   res.json({ success: true });
 });
 
-// --- Post Routes ---
-router.get('/api/posts', async (req, res) => {
-  const db = await getDb();
-  let posts = await db.all('SELECT * FROM posts ORDER BY createdAt DESC');
-  posts = posts.map(p => ({...p, products: JSON.parse(p.products)}));
-  res.json(posts);
-});
-
-router.post('/api/posts', async (req, res) => {
-    const { id, title, content, products, createdAt } = req.body;
-    const db = await getDb();
-    if (id) { // Update
-        await db.run(
-            'UPDATE posts SET title = ?, content = ?, products = ?, createdAt = ? WHERE id = ?', 
-            title, content, JSON.stringify(products || []), createdAt, id
-        );
-    } else { // Create
-        const newPost = {
-            id: crypto.randomUUID(),
-            title,
-            content,
-            products: JSON.stringify(products || []),
-            createdAt: new Date().toISOString()
-        };
-        await db.run(
-            'INSERT INTO posts (id, title, content, products, createdAt) VALUES (?, ?, ?, ?, ?)',
-            newPost.id, newPost.title, newPost.content, newPost.products, newPost.createdAt
-        );
-    }
-    res.status(201).json({ success: true });
-});
-
-router.delete('/api/posts/:id', async (req, res) => {
-    const { id } = req.params;
-    const db = await getDb();
-    await db.run('DELETE FROM posts WHERE id = ?', id);
-    res.json({ success: true });
-});
-
-// --- Gemini API Proxy Routes ---
-router.post('/api/gemini/fetch-product', async (req, res) => {
-    const { productUrl } = req.body;
-    const apiKey = await getSetting('gemini_api_key');
-
-    if (!apiKey) {
-        return res.status(400).json({ message: "API key is not configured." });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `You are an expert data extractor. Analyze the content of the provided URL and extract the product's title, price, a detailed description (summarize the key features and specifications if the description is long), and the primary high-resolution product image URL. URL: ${productUrl}. Respond ONLY with a single, minified JSON object with the keys: "title", "price", "description", "imageUrl". Do not include markdown 'json' block or any other text.`;
-    
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                tools: [{googleSearch: {}}],
-                temperature: 0.0,
-            }
-        });
-        const text = response.text.trim();
-        const jsonMatch = text.match(/\{.*\}/s);
-        if (!jsonMatch) {
-            throw new Error("Invalid JSON response from AI.");
-        }
-        res.json(JSON.parse(jsonMatch[0]));
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ message: "Failed to fetch product data from the URL." });
-    }
-});
-
-router.post('/api/gemini/generate-post', async (req, res) => {
-    const { products, instructions, templatePrompt } = req.body;
-    const apiKey = await getSetting('gemini_api_key');
-    const generalSettings = await getSetting('general_settings') || '';
-
-    console.log('--- GENERATE POST: RECEIVED BODY ---');
-    console.log(JSON.stringify(req.body, null, 2));
-
-
-    if (!apiKey) {
-        return res.status(400).json({ message: "API key is not configured." });
-    }
-    
-    const ai = new GoogleGenAI({ apiKey });
-    const productDetails = products.map((p, index) => `
-        Product ${index + 1}:
-        - Title: ${p.title}
-        - Price: ${p.price}
-        - Description: ${p.description}
-        - Image URL: ${p.imageUrl}
-        - Affiliate Link: ${p.affiliateLink}
-    `).join('\n');
-
-    const defaultPrompt = `
-        You are an expert blog writer specializing in product comparisons for platforms like WordPress and Blogger.
-        Your task is to generate a comprehensive, engaging, and SEO-friendly blog post comparing the following products.
-
-        **General Writing Style & Instructions from User:**
-        {{GENERAL_SETTINGS}}
-
-        **Specific Instructions for this post:**
-        {{SPECIFIC_INSTRUCTIONS}}
-
-        **Product Information:**
-        {{PRODUCT_DETAILS}}
-
-        **Output Requirements:**
-        1.  Generate a compelling, SEO-friendly title for the blog post.
-        2.  Write the blog post content in HTML format.
-        3.  The HTML should be well-structured with headings (h2, h3), paragraphs (p), lists (ul, li), and bold tags (strong) to highlight key features.
-        4.  Create a detailed comparison, discussing the pros and cons of each product.
-        5.  Incorporate the affiliate links naturally within the text, for example, in a "Check Price" or "Buy Now" context using an anchor tag (<a>). Make sure the affiliate link is the href value. Use the product title or a call to action as the link text.
-        6.  Conclude with a summary and a recommendation for different types of buyers.
-        7.  The tone should be helpful, informative, and persuasive.
-    `;
-    
-    let finalPrompt = (templatePrompt || defaultPrompt)
-        .replace('{{PRODUCT_DETAILS}}', productDetails)
-        .replace('{{GENERAL_SETTINGS}}', generalSettings || 'No general instructions provided.')
-        .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.');
-    
-    console.log('--- FINAL PROMPT SENT TO GEMINI ---');
-    console.log(finalPrompt);
-
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-            title: { type: Type.STRING, description: "The SEO-friendly title of the blog post." },
-            content: { type: Type.STRING, description: "The full blog post content, formatted in valid HTML." }
-        },
-        required: ["title", "content"]
-    };
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: finalPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema
-            }
-        });
-        const jsonText = response.text.trim();
-        res.json(JSON.parse(jsonText));
-    } catch (e) {
-        console.error("--- GEMINI API ERROR ---");
-        // Log the full error object as a string for better inspection in logs
-        console.error(JSON.stringify(e, Object.getOwnPropertyNames(e), 2));
-        const errorMessage = e.message || "An unknown error occurred during Gemini API call.";
-        // Send a more detailed error message to the client
-        res.status(500).json({ message: `Failed to generate blog post.\n\nServer Error: ${errorMessage}\n\nPlease check the Docker container logs for the full technical details.` });
-    }
-});
 
 export default router;
