@@ -2,17 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as db from '../services/dbService';
 import { testApiKey } from '../services/geminiService';
 import Card from '../components/common/Card';
-import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 const Dashboard: React.FC = () => {
-  const [apiKeyInput, setApiKeyInput] = useState('');
   const [settings, setSettings] = useState('');
   const [testStatus, setTestStatus] = useState<TestStatus>('idle');
-  const [keySaved, setKeySaved] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [apiKeyIsSet, setApiKeyIsSet] = useState(false);
 
@@ -20,6 +17,9 @@ const Dashboard: React.FC = () => {
     try {
         const status = await db.getApiKeyStatus();
         setApiKeyIsSet(!!status.apiKey);
+        if (!status.apiKey) {
+            setTestStatus('idle');
+        }
     } catch (e) {
         console.error(e);
         setApiKeyIsSet(false);
@@ -29,21 +29,10 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     checkApiKeyStatus();
-    db.getSettings().then(s => setSettings(s.generalSettings || ''));
+    db.getSettings()
+      .then(s => setSettings(s.generalSettings || ''))
+      .catch(console.error);
   }, [checkApiKeyStatus]);
-
-  const handleSaveApiKey = async () => {
-    try {
-      await db.saveApiKey(apiKeyInput);
-      setKeySaved(true);
-      setApiKeyInput('');
-      setTestStatus('idle');
-      checkApiKeyStatus();
-      setTimeout(() => setKeySaved(false), 3000);
-    } catch(e) {
-      alert('Failed to save API Key.');
-    }
-  };
 
   const handleSaveSettings = async () => {
     try {
@@ -51,6 +40,7 @@ const Dashboard: React.FC = () => {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
     } catch (e) {
+        console.error(e);
         alert('Failed to save settings.');
     }
   };
@@ -71,9 +61,9 @@ const Dashboard: React.FC = () => {
         return <span className="text-red-400">Connection failed. Check key.</span>;
       default:
          if (apiKeyIsSet) {
-            return <span className="text-green-400">API Key is set.</span>;
+            return <span className="text-green-400">API Key is configured on server.</span>;
          }
-        return <span className="text-slate-400">API Key not set.</span>;
+        return <span className="text-slate-400">API Key not set on server.</span>;
     }
   };
 
@@ -86,34 +76,15 @@ const Dashboard: React.FC = () => {
         <Card>
           <h2 className="text-xl font-semibold text-white mb-4">API Configuration</h2>
           <p className="text-slate-400 mb-4">
-            Your Gemini API Key is required to generate content. It's stored securely in the app's database and never exposed to the client.
+            Your Gemini API Key must be set in the <code className="bg-slate-700 text-sm p-1 rounded">.env</code> file on the server. The application reads the key from the server environment for security.
           </p>
-          <div className="space-y-4">
-            <Input
-              label={apiKeyIsSet ? "Update Gemini API Key" : "Enter Gemini API Key"}
-              id="api-key"
-              type="password"
-              value={apiKeyInput}
-              onChange={(e) => {
-                setApiKeyInput(e.target.value);
-                setTestStatus('idle');
-              }}
-              placeholder="Enter new key to update"
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+          <div className="space-y-4 mt-6">
+             <div className="flex items-center space-x-4">
                 <Button onClick={handleTestApiKey} disabled={!apiKeyIsSet || testStatus === 'testing'}>
                   {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
                 </Button>
-                <div className="h-6">{getStatusIndicator()}</div>
+                <div className="h-6 flex items-center">{getStatusIndicator()}</div>
               </div>
-              <div className="flex items-center space-x-3">
-                 {keySaved && <span className="text-green-400 text-sm">Saved!</span>}
-                <Button onClick={handleSaveApiKey} disabled={!apiKeyInput}>
-                  Save Key
-                </Button>
-              </div>
-            </div>
           </div>
         </Card>
 
