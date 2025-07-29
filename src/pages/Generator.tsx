@@ -7,6 +7,7 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';
+import { generateUUID } from '../utils/uuid';
 
 const ProductForm: React.FC<{ 
     product: Product; 
@@ -121,7 +122,7 @@ const ResultModal: React.FC<{ post: BlogPost; onClose: () => void; }> = ({ post,
 
 
 const Generator: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([{ id: crypto.randomUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
+  const [products, setProducts] = useState<Product[]>([{ id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
   const [isLoading, setIsLoading] = useState(false);
@@ -136,7 +137,7 @@ const Generator: React.FC = () => {
   }, []);
 
   const addProduct = () => {
-    setProducts([...products, { id: crypto.randomUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
+    setProducts([...products, { id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
   };
   
   const updateProduct = (index: number, updatedProduct: Product) => {
@@ -164,7 +165,7 @@ const Generator: React.FC = () => {
     try {
       const result = await generateBlogPost(products, instructions, selectedTemplate?.prompt ?? null);
       const newPost: BlogPost = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         title: result.title,
         content: result.content,
         products: products,
