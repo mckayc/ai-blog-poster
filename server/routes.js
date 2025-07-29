@@ -178,6 +178,10 @@ router.post('/api/gemini/generate-post', async (req, res) => {
     const apiKey = await getSetting('gemini_api_key');
     const generalSettings = await getSetting('general_settings') || '';
 
+    console.log('--- GENERATE POST: RECEIVED BODY ---');
+    console.log(JSON.stringify(req.body, null, 2));
+
+
     if (!apiKey) {
         return res.status(400).json({ message: "API key is not configured." });
     }
@@ -219,6 +223,9 @@ router.post('/api/gemini/generate-post', async (req, res) => {
         .replace('{{PRODUCT_DETAILS}}', productDetails)
         .replace('{{GENERAL_SETTINGS}}', generalSettings || 'No general instructions provided.')
         .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.');
+    
+    console.log('--- FINAL PROMPT SENT TO GEMINI ---');
+    console.log(finalPrompt);
 
     const responseSchema = {
         type: Type.OBJECT,
@@ -241,8 +248,12 @@ router.post('/api/gemini/generate-post', async (req, res) => {
         const jsonText = response.text.trim();
         res.json(JSON.parse(jsonText));
     } catch (e) {
-        console.error("Error generating blog post:", e);
-        res.status(500).json({ message: "Failed to generate blog post." });
+        console.error("--- GEMINI API ERROR ---");
+        // Log the full error object as a string for better inspection in logs
+        console.error(JSON.stringify(e, Object.getOwnPropertyNames(e), 2));
+        const errorMessage = e.message || "An unknown error occurred during Gemini API call.";
+        // Send a more detailed error message to the client
+        res.status(500).json({ message: `Failed to generate blog post.\n\nServer Error: ${errorMessage}\n\nPlease check the Docker container logs for the full technical details.` });
     }
 });
 

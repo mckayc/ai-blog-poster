@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, BlogPost, Template } from '../types';
 import * as db from '../services/dbService';
@@ -220,7 +221,19 @@ const Generator: React.FC = () => {
         </Button>
       </div>
 
-      {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
+      {error && (
+        <Card className="mt-6 border border-red-500 bg-red-900/30">
+            <div className="flex items-center mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-lg font-semibold text-red-300">Generation Failed</h3>
+            </div>
+            <pre className="text-red-300 text-sm whitespace-pre-wrap break-words font-mono bg-slate-900 p-4 rounded-md">
+              {error}
+            </pre>
+        </Card>
+      )}
       
       {showInstructionModal && <InstructionModal onGenerate={handleGenerate} onCancel={() => setShowInstructionModal(false)} />}
       {generatedPost && <ResultModal post={generatedPost} onClose={() => setGeneratedPost(null)} />}
