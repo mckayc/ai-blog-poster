@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Product, BlogPost, Template } from '../types';
 import * as db from '../services/dbService';
@@ -13,8 +12,8 @@ const ProductForm: React.FC<{
     onUpdate: (updatedProduct: Product) => void; 
     onRemove: () => void; 
     canRemove: boolean;
-    apiKey: string | null;
-}> = ({ product, onUpdate, onRemove, canRemove, apiKey }) => {
+    apiKeyIsSet: boolean;
+}> = ({ product, onUpdate, onRemove, canRemove, apiKeyIsSet }) => {
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -23,14 +22,18 @@ const ProductForm: React.FC<{
   };
   
   const handleFetchData = async () => {
-    if (!product.productUrl || !apiKey) {
-        setFetchError("Please provide a product URL and ensure API key is set.");
+    if (!product.productUrl) {
+        setFetchError("Please provide a product URL.");
+        return;
+    }
+    if (!apiKeyIsSet) {
+        setFetchError("API key is not set. Please configure it in the Dashboard.");
         return;
     }
     setIsFetching(true);
     setFetchError(null);
     try {
-        const data = await fetchProductData(apiKey, product.productUrl);
+        const data = await fetchProductData(product.productUrl);
         onUpdate({ ...product, ...data });
     } catch (e: any) {
         setFetchError(e.message || "An unknown error occurred during fetch.");
@@ -53,7 +56,7 @@ const ProductForm: React.FC<{
             <div className="flex-grow">
                 <Input label="Product URL" id={`productUrl-${product.id}`} value={product.productUrl} onChange={(e) => handleChange('productUrl', e.target.value)} placeholder="https://amazon.com/dp/..."/>
             </div>
-            <Button onClick={handleFetchData} disabled={isFetching || !product.productUrl || !apiKey}>
+            <Button onClick={handleFetchData} disabled={isFetching || !product.productUrl || !apiKeyIsSet}>
                 {isFetching ? 'Fetching...' : 'Fetch Product Data'}
             </Button>
         </div>
@@ -124,11 +127,11 @@ const Generator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<BlogPost | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiKeyIsSet, setApiKeyIsSet] = useState(false);
 
   useEffect(() => {
-    setTemplates(db.getTemplates());
-    setApiKey(db.getApiKey());
+    db.getTemplates().then(setTemplates).catch(console.error);
+    db.getApiKeyStatus().then(status => setApiKeyIsSet(!!status.apiKey)).catch(console.error);
   }, []);
 
   const addProduct = () => {
@@ -150,16 +153,15 @@ const Generator: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    if (!apiKey) {
+    if (!apiKeyIsSet) {
       setError("API Key not found. Please set it in the Dashboard.");
       setIsLoading(false);
       return;
     }
-    const generalSettings = db.getSettings() || '';
     const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
     try {
-      const result = await generateBlogPost(apiKey, products, instructions, generalSettings, selectedTemplate?.prompt ?? null);
+      const result = await generateBlogPost(products, instructions, selectedTemplate?.prompt ?? null);
       const newPost: BlogPost = {
         id: crypto.randomUUID(),
         title: result.title,
@@ -167,7 +169,7 @@ const Generator: React.FC = () => {
         products: products,
         createdAt: new Date().toISOString()
       };
-      db.savePost(newPost);
+      await db.savePost(newPost);
       setGeneratedPost(newPost);
     } catch (e: any) {
       setError(e.message || "An unknown error occurred.");
@@ -203,7 +205,7 @@ const Generator: React.FC = () => {
 
 
       {products.map((p, i) => (
-        <ProductForm key={p.id} product={p} onUpdate={(up) => updateProduct(i, up)} onRemove={() => removeProduct(i)} canRemove={products.length > 1} apiKey={apiKey} />
+        <ProductForm key={p.id} product={p} onUpdate={(up) => updateProduct(i, up)} onRemove={() => removeProduct(i)} canRemove={products.length > 1} apiKeyIsSet={apiKeyIsSet} />
       ))}
 
       <div className="flex items-center justify-between mt-6">
@@ -213,7 +215,7 @@ const Generator: React.FC = () => {
           </svg>
           Add Another Product
         </Button>
-        <Button onClick={() => setShowInstructionModal(true)} disabled={isLoading}>
+        <Button onClick={() => setShowInstructionModal(true)} disabled={isLoading || !apiKeyIsSet}>
           {isLoading ? 'Generating...' : 'Generate Blog Post'}
         </Button>
       </div>

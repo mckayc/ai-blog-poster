@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: blog-post-generator-app
+    ports:
+      - "8989:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
