@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import ReactQuill from 'react-quill';
+import ReactQuill, { Quill } from 'react-quill';
+import ImageResize from 'quill-image-resize-module-react';
+import quillBetterTable from 'quill-better-table';
 import { BlogPost, Template } from '../types';
 import * as db from '../services/dbService';
 import * as gemini from '../services/geminiService';
@@ -8,16 +10,46 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
+import LoadingOverlay from '../components/common/LoadingOverlay';
+
+// Register Quill modules for image resizing and tables.
+// This should only be done once per application load.
+Quill.register({
+    'modules/imageResize': ImageResize,
+    'modules/better-table': quillBetterTable
+}, true);
 
 const quillModules = {
   toolbar: [
-    [{ 'header': [1, 2] }], // H1, H2, and Paragraph (default)
+    [{ 'header': [1, 2] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
     ['link', 'image', 'blockquote', 'code-block'],
+    ['table'], // Add table button from quill-better-table
     [{ 'align': [] }],
     ['clean']
   ],
+  imageResize: {
+    parchment: Quill.import('parchment'),
+    modules: ['Resize', 'DisplaySize', 'Toolbar'],
+    toolbarStyles: {
+      backgroundColor: 'rgba(30, 41, 59, 0.8)',
+      border: '1px solid #475569',
+      color: '#cbd5e1',
+    },
+  },
+  table: false, // disable default table module
+  'better-table': {
+    operationMenu: {
+      items: {
+        unmergeCells: { text: 'Unmerge cells' }
+      },
+       color: {
+        colors: ['#444444', '#555555', '#666666', '#777777', '#888888', '#999999', '#bbbbbb', '#dddddd'],
+        text: 'Background Colors'
+      }
+    }
+  },
 };
 
 type EditorMode = 'wysiwyg' | 'html';
@@ -43,6 +75,8 @@ const EditPost: React.FC = () => {
     const [streamError, setStreamError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     
+    const isInitialGeneration = searchParams.get('new') === 'true';
+
     useEffect(() => {
         if (!postId) {
             navigate('/manage');
@@ -86,16 +120,8 @@ const EditPost: React.FC = () => {
                     }
                     accumulatedJson += chunk;
                     
-                    try {
-                       const parsed = JSON.parse(accumulatedJson);
-                       setTitle(parsed.title || '');
-                       setHeroImageUrl(parsed.heroImageUrl || '');
-                       setContent(parsed.content || '');
-                       setTags(parsed.tags || []);
-                    } catch (e) {
-                       // JSON is not complete yet, continue accumulating
-                    }
-
+                    // Live update for perceived speed, but it can be janky.
+                    // Let's just update at the end for a smoother experience.
                     if (done) break;
                 }
 
@@ -130,7 +156,7 @@ const EditPost: React.FC = () => {
                 setHeroImageUrl(foundPost.heroImageUrl);
                 setTags(foundPost.tags);
                 
-                if (searchParams.get('new') === 'true') {
+                if (isInitialGeneration) {
                     await performInitialStream(foundPost);
                 }
 
@@ -144,7 +170,7 @@ const EditPost: React.FC = () => {
         };
 
         loadPost();
-    }, [postId, navigate, searchParams, setSearchParams]);
+    }, [postId, navigate, searchParams, setSearchParams, isInitialGeneration]);
 
     const handleSave = async () => {
         if (!post) return;
@@ -261,7 +287,14 @@ const EditPost: React.FC = () => {
     };
     
     if (isLoading) {
-        return <div className="text-center text-slate-400 p-8">Loading post...</div>;
+        return <LoadingOverlay message="Loading Post Data..." />;
+    }
+
+    if (isStreaming && isInitialGeneration) {
+        return <LoadingOverlay
+            message="Generating Your Masterpiece..."
+            details="The AI is working its magic. The editor will become available once the initial draft is complete."
+        />
     }
 
     if (!post) {
@@ -289,7 +322,7 @@ const EditPost: React.FC = () => {
                 border-bottom-right-radius: 0.75rem;
                 border: 1px solid #334155 !important; /* slate-700 */
             }
-            .ql-snow .ql-stroke { stroke: #d1d5db; }
+            .ql-snow .ql-stroke, .ql-snow .ql-fill { stroke: #d1d5db; fill: #d1d5db; }
             .ql-snow .ql-picker-label { color: #d1d5db; }
             .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: transparent !important; }
             .ql-snow .ql-picker.ql-expanded .ql-picker-options { background-color: #334155; border-color: #475569 !important; }
@@ -301,11 +334,21 @@ const EditPost: React.FC = () => {
             .ql-snow .ql-editor a:hover { text-decoration: underline; }
             .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; font-style: italic; }
             .ql-snow .ql-editor pre.ql-syntax { background-color: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 0.5rem; }
-            .ql-editor img { max-width: 100%; height: auto; margin-top: 0.5rem; margin-bottom: 0.5rem; display: block; }
+            .ql-editor img { max-width: 100%; height: auto; margin-top: 0.5rem; margin-bottom: 0.5rem; display: block; border-radius: 0.5rem; }
             .ql-editor .ql-align-center { text-align: center; }
             .ql-editor .ql-align-right { text-align: right; }
             .ql-editor .ql-align-left { text-align: left; }
             .ql-editor p.ql-align-center img { margin-left: auto; margin-right: auto; }
+
+            /* Better Table Dark Theme */
+            .ql-snow .ql-tooltip.ql-editing a.ql-action::after { color: white; }
+            .ql-snow .ql-tooltip[data-mode="table"] { background-color: #1e293b; border: 1px solid #334155; color: white; }
+            .ql-snow .ql-tooltip[data-mode="table"] .ql-tooltip-arrow { background-color: #1e293b; border-top-color: #334155; border-left-color: #334155; }
+            .ql-snow .ql-tooltip[data-mode="table"] input[type=text] { background-color: #334155; color: white; border: 1px solid #475569; }
+            .ql-snow .ql-tooltip[data-mode=table] .ql-preview { color: white; }
+            #ql-better-table-op-menu { background-color: #1e293b; border: 1px solid #334155; color: #cbd5e1; }
+            #ql-better-table-op-menu .menu-item:hover { background-color: #334155; }
+            #ql-better-table-op-menu .ql-table-menu-item-panel { background-color: #334155; }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -348,7 +391,7 @@ const EditPost: React.FC = () => {
                 
                 <Card className="!p-0 !bg-slate-800 rounded-xl">
                     <div className="flex justify-between items-center p-2 border-b border-slate-700">
-                         {isStreaming && (
+                         {isStreaming && !isInitialGeneration && (
                              <div className="p-2 text-yellow-300 flex items-center">
                                 <svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
