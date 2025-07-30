@@ -19,7 +19,10 @@ const ManagePosts: React.FC = () => {
         const sortedPosts = posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setPosts(sortedPosts);
       })
-      .catch(e => console.error("Failed to load posts:", e))
+      .catch(e => {
+        console.error("Failed to load posts:", e)
+        alert("Could not load posts. See console for details.")
+      })
       .finally(() => setLoading(false));
   }, []);
   
@@ -41,7 +44,7 @@ const ManagePosts: React.FC = () => {
     }
   };
   
-  const handleEdit = (postId: string) => {
+  const handleOpen = (postId: string) => {
     navigate(`/edit/${postId}`);
   };
 
@@ -55,30 +58,23 @@ const ManagePosts: React.FC = () => {
         </Card>
       ) : posts.length === 0 ? (
         <Card className="text-center">
-          <p className="text-slate-400">You haven't generated any blog posts yet.</p>
+          <p className="text-slate-400">You haven't created any blog posts yet. Go to the 'Edit Post' page to create one!</p>
         </Card>
       ) : (
         <div className="space-y-4">
           {posts.map(post => (
             <Card key={post.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
               <div>
-                <h3 className="text-lg font-semibold text-white">{post.name}</h3>
-                <p className="text-sm text-slate-400 mt-1 line-clamp-1">
-                  Title: {post.title}
-                </p>
-                <p className="text-sm text-slate-400 mt-1">
+                <h3 className="text-lg font-semibold text-white">{post.title || 'Untitled Post'}</h3>
+                <p className="text-sm text-slate-400">
                   Created on {new Date(post.createdAt).toLocaleDateString()}
                 </p>
-                {post.tags && post.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                        {post.tags.slice(0, 5).map(tag => tag && (
-                            <span key={tag} className="bg-slate-700 text-slate-300 text-xs font-medium px-2 py-0.5 rounded-full">{tag}</span>
-                        ))}
-                    </div>
-                )}
+                <p className="text-sm text-slate-400 mt-1">
+                  Products: {post.products.length}
+                </p>
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-2 flex-shrink-0">
-                <Button variant="secondary" onClick={() => handleEdit(post.id)}>Edit</Button>
+                <Button variant="secondary" onClick={() => handleOpen(post.id)}>Open</Button>
                 <Button variant="danger" onClick={() => setPostToDelete(post)}>Delete</Button>
               </div>
             </Card>
@@ -90,7 +86,7 @@ const ManagePosts: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
             <Card>
                 <h2 className="text-xl font-bold text-white mb-4">Confirm Deletion</h2>
-                <p className="text-slate-300">Are you sure you want to delete the post titled "{postToDelete.name}"?</p>
+                <p className="text-slate-300">Are you sure you want to delete the post titled "{postToDelete.title}"?</p>
                 <div className="mt-6 flex justify-end space-x-3">
                     <Button variant="secondary" onClick={() => setPostToDelete(null)}>Cancel</Button>
                     <Button variant="danger" onClick={handleDeletePost}>Delete</Button>

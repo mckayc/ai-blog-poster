@@ -18,7 +18,8 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/generator" element={<Generator />} />
-            <Route path="/manage" element={<ManagePosts />} />
+            <Route path="/posts" element={<ManagePosts />} />
+            <Route path="/edit" element={<EditPost />} />
             <Route path="/edit/:postId" element={<EditPost />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/products" element={<ManageProducts />} />
