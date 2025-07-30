@@ -53,9 +53,22 @@ export const deletePostById = async (req, res) => {
     }
 };
 
+export const deleteMultiplePosts = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'Invalid or empty array of post IDs provided.' });
+        }
+        const result = await postService.deleteMultiplePostsByIds(ids);
+        res.json(result);
+    } catch (error) {
+        handle_error(res, error);
+    }
+};
+
 export const generatePostStream = async (req, res) => {
     try {
-        const { products, instructions, templateId } = req.body;
+        const { products, instructions, templateId, includeComparisonCards } = req.body;
         
         let templatePrompt = null;
         if (templateId && templateId !== 'default') {
@@ -68,7 +81,7 @@ export const generatePostStream = async (req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        const stream = await geminiService.generateBlogPostStream(products, instructions, templatePrompt);
+        const stream = await geminiService.generateBlogPostStream(products, instructions, templatePrompt, includeComparisonCards);
 
         for await (const chunk of stream) {
             res.write(chunk.text);
@@ -78,7 +91,7 @@ export const generatePostStream = async (req, res) => {
     } catch (error) {
         console.error("--- STREAMING CONTROLLER ERROR ---");
         console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        res.end(`STREAM_ERROR: ${error.message}`);
+        res.status(500).end(`STREAM_ERROR: ${error.message}`);
     }
 };
 

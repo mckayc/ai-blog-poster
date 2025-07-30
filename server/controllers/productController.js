@@ -1,3 +1,4 @@
+
 import * as productService from '../services/productService.js';
 import * as geminiService from '../services/geminiService.js';
 
@@ -62,6 +63,20 @@ export const deleteProduct = async (req, res) => {
         handle_error(res, error);
     }
 };
+
+export const deleteMultipleProducts = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'Invalid or empty array of product IDs provided.' });
+        }
+        const result = await productService.deleteMultipleProductsByIds(ids);
+        res.json(result);
+    } catch (error) {
+        handle_error(res, error);
+    }
+};
+
 
 export const getUniqueCategories = async (req, res) => {
     try {

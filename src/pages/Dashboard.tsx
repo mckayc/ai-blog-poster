@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import * as db from '../services/dbService';
-import { testApiKey } from '../services/geminiService';
-import { AppSettings } from '../types';
+import * as db from '../services/dbService.ts';
+import { testApiKey } from '../services/geminiService.ts';
+import { AppSettings } from '../types.ts';
 import Card from '../components/common/Card';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';

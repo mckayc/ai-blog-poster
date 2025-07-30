@@ -11,6 +11,7 @@ router.get('/posts', postController.getAllPosts);
 router.get('/posts/:id', postController.getPostById);
 router.post('/posts', postController.saveOrUpdatePost);
 router.delete('/posts/:id', postController.deletePostById);
+router.delete('/posts', postController.deleteMultiplePosts); // Bulk delete
 
 // --- Product Routes ---
 router.get('/products', productController.getAllProducts);
@@ -19,6 +20,7 @@ router.post('/products', productController.createProduct);
 router.get('/products/:id', productController.getProductById);
 router.put('/products/:id', productController.updateProduct);
 router.delete('/products/:id', productController.deleteProduct);
+router.delete('/products', productController.deleteMultipleProducts); // Bulk delete
 router.post('/products/fetch-and-save', productController.fetchAndSaveProduct);
 
 

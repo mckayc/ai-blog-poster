@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BlogPost } from '../types';
-import * as db from '../services/dbService';
+import { BlogPost } from '../types.ts';
+import * as db from '../services/dbService.ts';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 
@@ -10,6 +10,7 @@ const ManagePosts: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
+  const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const loadPosts = useCallback(() => {
@@ -48,9 +49,46 @@ const ManagePosts: React.FC = () => {
     navigate(`/edit/${postId}`);
   };
 
+  const handleSelectPost = (postId: string) => {
+    setSelectedPosts(prev => 
+      prev.includes(postId) 
+        ? prev.filter(id => id !== postId)
+        : [...prev, postId]
+    );
+  };
+  
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedPosts(posts.map(p => p.id));
+    } else {
+      setSelectedPosts([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPosts.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedPosts.length} selected post(s)?`)) {
+        try {
+            await db.deletePosts(selectedPosts);
+            setSelectedPosts([]);
+            loadPosts();
+        } catch (error) {
+            alert("Failed to delete selected posts. See console for details.");
+            console.error(error);
+        }
+    }
+  };
+
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white mb-6">Manage Blog Posts</h1>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+        <h1 className="text-3xl font-bold text-white">Manage Blog Posts</h1>
+        {selectedPosts.length > 0 && (
+            <Button variant="danger" onClick={handleBulkDelete}>
+                Delete Selected ({selectedPosts.length})
+            </Button>
+        )}
+      </div>
       
       {loading ? (
          <Card className="text-center">
@@ -62,16 +100,33 @@ const ManagePosts: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-4">
+          <div className="flex items-center px-4 py-2 bg-slate-800 rounded-lg">
+            <input
+                type="checkbox"
+                onChange={handleSelectAll}
+                checked={selectedPosts.length > 0 && selectedPosts.length === posts.length}
+                className="h-5 w-5 rounded border-slate-500 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label className="ml-3 text-sm font-medium text-slate-300">Select All</label>
+          </div>
           {posts.map(post => (
             <Card key={post.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{post.title || 'Untitled Post'}</h3>
-                <p className="text-sm text-slate-400">
-                  Created on {new Date(post.createdAt).toLocaleDateString()}
-                </p>
-                <p className="text-sm text-slate-400 mt-1">
-                  Products: {post.products.length}
-                </p>
+              <div className="flex items-start gap-4 flex-grow">
+                 <input
+                    type="checkbox"
+                    checked={selectedPosts.includes(post.id)}
+                    onChange={() => handleSelectPost(post.id)}
+                    className="h-5 w-5 rounded border-slate-500 bg-slate-700 text-indigo-600 focus:ring-indigo-500 mt-1"
+                />
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{post.title || 'Untitled Post'}</h3>
+                  <p className="text-sm text-slate-400">
+                    Created on {new Date(post.createdAt).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Products: {post.products.length}
+                  </p>
+                </div>
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-2 flex-shrink-0">
                 <Button variant="secondary" onClick={() => handleOpen(post.id)}>Open</Button>

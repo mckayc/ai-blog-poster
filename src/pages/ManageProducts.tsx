@@ -102,6 +102,7 @@ const ManageProducts: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
   const loadProducts = useCallback(() => {
     db.getProducts({ search: searchTerm, category: selectedCategory })
@@ -144,6 +145,37 @@ const ManageProducts: React.FC = () => {
       }
     }
   };
+  
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+  
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedProducts(products.map(p => p.id));
+    } else {
+      setSelectedProducts([]);
+    }
+  };
+  
+  const handleBulkDelete = async () => {
+    if (selectedProducts.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedProducts.length} selected product(s)? This cannot be undone.`)) {
+        try {
+            await db.deleteProducts(selectedProducts);
+            setSelectedProducts([]);
+            loadProducts();
+        } catch (error) {
+            alert("Failed to delete selected products. See console for details.");
+            console.error(error);
+        }
+    }
+  };
+
 
   return (
     <div>
@@ -152,7 +184,14 @@ const ManageProducts: React.FC = () => {
             <h1 className="text-3xl font-bold text-white">Product Library</h1>
             <p className="text-slate-400 mt-1">Manage your reusable products here.</p>
         </div>
-        <Button onClick={() => setEditingProduct({})}>Add New Product</Button>
+        <div className="flex items-center gap-2">
+            {selectedProducts.length > 0 && (
+                <Button variant="danger" onClick={handleBulkDelete}>
+                    Delete Selected ({selectedProducts.length})
+                </Button>
+            )}
+            <Button onClick={() => setEditingProduct({})}>Add New Product</Button>
+        </div>
       </div>
 
       <Card className="mb-6">
@@ -174,15 +213,32 @@ const ManageProducts: React.FC = () => {
           <p className="text-slate-400">Your product library is empty.</p>
         </Card>
       ) : (
+        <>
+        <div className="flex items-center px-4 py-2 bg-slate-800 rounded-lg mb-4">
+            <input
+                type="checkbox"
+                onChange={handleSelectAll}
+                checked={selectedProducts.length > 0 && selectedProducts.length === products.length}
+                className="h-5 w-5 rounded border-slate-500 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label className="ml-3 text-sm font-medium text-slate-300">Select All</label>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {products.map(product => (
             <Card key={product.id} className="flex flex-col">
                 <div className="flex gap-4 items-start flex-grow">
+                    <input
+                        type="checkbox"
+                        checked={selectedProducts.includes(product.id)}
+                        onChange={() => handleSelectProduct(product.id)}
+                        className="h-5 w-5 rounded border-slate-500 bg-slate-700 text-indigo-600 focus:ring-indigo-500 mt-1 flex-shrink-0"
+                    />
                     <img src={product.imageUrl} alt={product.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0 bg-slate-700 border border-slate-600" />
                     <div className="flex-grow">
                         <h3 className="text-lg font-bold text-white line-clamp-2">{product.name}</h3>
                         <p className="text-sm text-indigo-300 font-medium">{product.category}</p>
                         <p className="text-xs text-slate-400 line-clamp-1">{product.brand}</p>
+                        {product.price && <p className="text-md font-semibold text-emerald-400 mt-1">{product.price}</p>}
                     </div>
                 </div>
                 {product.tags && product.tags.length > 0 && (
@@ -199,6 +255,7 @@ const ManageProducts: React.FC = () => {
             </Card>
           ))}
         </div>
+        </>
       )}
 
       {editingProduct && (

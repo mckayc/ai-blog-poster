@@ -57,6 +57,14 @@ export const deletePost = (postId: string): Promise<any> => {
     return fetch(`/api/posts/${postId}`, { method: 'DELETE' }).then(handleResponse);
 };
 
+export const deletePosts = (postIds: string[]): Promise<any> => {
+    return fetch('/api/posts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: postIds })
+    }).then(handleResponse);
+};
+
 // --- Template Management ---
 export const getTemplates = (): Promise<Template[]> => {
     return fetch('/api/templates').then(handleResponse);
@@ -99,6 +107,14 @@ export const saveProduct = (product: Partial<Product>): Promise<Product> => {
 
 export const deleteProduct = (productId: string): Promise<any> => {
     return fetch(`/api/products/${productId}`, { method: 'DELETE' }).then(handleResponse);
+};
+
+export const deleteProducts = (productIds: string[]): Promise<any> => {
+    return fetch('/api/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: productIds })
+    }).then(handleResponse);
 };
 
 export const fetchAndSaveProduct = (productUrl: string): Promise<Product> => {

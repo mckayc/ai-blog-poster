@@ -1,4 +1,19 @@
+
 import { getDb } from '../database.js';
+
+const ensureDollarSign = (price) => {
+    if (typeof price !== 'string' || price.trim() === '') return price;
+    const trimmedPrice = price.trim();
+    // If it already starts with $, do nothing
+    if (trimmedPrice.startsWith('$')) return trimmedPrice;
+    // If it's a numeric-like string, add $
+    // This regex allows numbers, commas, and dots.
+    if (/^[\d,.-]+$/.test(trimmedPrice)) {
+        return `$${trimmedPrice}`;
+    }
+    // Otherwise, it's probably text like "Check price", so leave it.
+    return trimmedPrice;
+};
 
 const parseProduct = (product) => {
     if (!product) return null;
@@ -58,7 +73,7 @@ export const createProduct = async (productData) => {
         title: productData.title || '',
         productUrl: productData.productUrl || '',
         imageUrl: productData.imageUrl || '',
-        price: productData.price || '',
+        price: ensureDollarSign(productData.price) || '',
         description: productData.description || '',
         brand: productData.brand || '',
         affiliateLink: productData.affiliateLink || '',
@@ -82,6 +97,9 @@ export const updateProduct = async (id, productData) => {
     if (!existing) throw new Error("Product not found");
 
     const updatedProduct = { ...existing, ...productData, updatedAt: now };
+    if (updatedProduct.price) {
+        updatedProduct.price = ensureDollarSign(updatedProduct.price);
+    }
     const serialized = serializeProduct(updatedProduct);
     
     await db.run(
@@ -100,6 +118,15 @@ export const deleteProduct = async (id) => {
     return { success: true };
 };
 
+export const deleteMultipleProductsByIds = async (ids) => {
+    const db = await getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
+    const result = await db.run(sql, ids);
+    console.log(`[DB LOG] Bulk deleted ${result.changes} products.`);
+    return { success: true, count: result.changes };
+};
+
 export const getUniqueCategories = async () => {
     const db = await getDb();
     const rows = await db.all('SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category');
@@ -108,7 +135,7 @@ export const getUniqueCategories = async () => {
 
 export const findOrCreateProductFromScrape = async (scrapedData) => {
     const db = await getDb();
-    const { productUrl, title, price, description, imageUrl } = scrapedData;
+    let { productUrl, title, price, description, imageUrl, brand } = scrapedData;
     
     let productRow = await db.get('SELECT * FROM products WHERE productUrl = ?', productUrl);
 
@@ -116,11 +143,12 @@ export const findOrCreateProductFromScrape = async (scrapedData) => {
         let product = parseProduct(productRow);
         // Product exists, update it with fresh data
         product.title = title || product.title;
-        product.price = price || product.price;
+        product.price = ensureDollarSign(price) || product.price;
         product.description = description || product.description;
         product.imageUrl = imageUrl || product.imageUrl;
+        product.brand = brand || product.brand;
         
-        // BUG FIX: Only set the internal name to the scraped title if the name is currently missing or was the same as the *old* title.
+        // Only set the internal name to the scraped title if the name is currently missing or was the same as the *old* title.
         // This preserves a user-customized internal name.
         if (!product.name || product.name === productRow.title) {
             product.name = title;
@@ -132,9 +160,10 @@ export const findOrCreateProductFromScrape = async (scrapedData) => {
         const newProductData = {
             name: title, // Default name to the scraped title
             title: title,
+            brand: brand,
             productUrl: productUrl,
             imageUrl: imageUrl,
-            price: price,
+            price: ensureDollarSign(price),
             description: description,
             category: 'Uncategorized',
             tags: [],

@@ -1,3 +1,4 @@
+
 import { getDb } from '../database.js';
 
 const parsePost = (post) => {
@@ -96,4 +97,13 @@ export const deletePostById = async (id) => {
     const db = await getDb();
     await db.run('DELETE FROM posts WHERE id = ?', id);
     return { success: true };
+};
+
+export const deleteMultiplePostsByIds = async (ids) => {
+    const db = await getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    const sql = `DELETE FROM posts WHERE id IN (${placeholders})`;
+    const result = await db.run(sql, ids);
+    console.log(`[DB LOG] Bulk deleted ${result.changes} posts.`);
+    return { success: true, count: result.changes };
 };
