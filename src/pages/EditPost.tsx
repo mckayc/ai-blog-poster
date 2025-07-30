@@ -12,6 +12,7 @@ import LoadingOverlay from '../components/common/LoadingOverlay';
 
 // Required imports for self-hosted TinyMCE
 import 'tinymce/tinymce';
+import 'tinymce/models/dom/model'; // Required for editor to initialize
 import 'tinymce/themes/silver/theme';
 import 'tinymce/icons/default/icons';
 import 'tinymce/plugins/advlist';
@@ -117,6 +118,7 @@ const EditPost: React.FC = () => {
                 setStatus('loading');
                 db.getPost(postId!)
                     .then(fetchedPost => {
+                        if (!fetchedPost) throw new Error(`Post with ID ${postId} not found.`);
                         setPost(fetchedPost);
                         setStatus('generating');
                         setGenerationDetails('Initializing AI stream...');
@@ -129,6 +131,7 @@ const EditPost: React.FC = () => {
                     })
                     .catch(err => {
                         console.error("Failed to fetch post for generation:", err);
+                        alert("Could not load the post. It may have been deleted. Redirecting to posts list.");
                         navigate('/posts');
                     });
             } else {
@@ -136,12 +139,16 @@ const EditPost: React.FC = () => {
                 setStatus('loading');
                 db.getPost(postId!)
                     .then(fetchedPost => {
-                        setPost(fetchedPost);
-                        setStatus('idle');
+                        if (fetchedPost) {
+                           setPost(fetchedPost);
+                           setStatus('idle');
+                        } else {
+                           throw new Error(`Post with ID ${postId} not found.`);
+                        }
                     })
                     .catch(err => {
                         console.error("Failed to fetch post:", err);
-                        alert("Could not load the post. Redirecting to posts list.");
+                        alert("Could not load the post. It may have been deleted. Redirecting to posts list.");
                         navigate('/posts');
                     });
             }

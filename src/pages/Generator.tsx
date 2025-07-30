@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, Template } from '../types';
-import * as db from '../services/dbService';
-import Card from '../components/common/Card';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
-import Button from '../components/common/Button';
+import { Product, Template } from '../types.ts';
+import * as db from '../services/dbService.ts';
+import Card from '../components/common/Card.tsx';
+import Input from '../components/common/Input.tsx';
+import Textarea from '../components/common/Textarea.tsx';
+import Button from '../components/common/Button.tsx';
 
 const ProductSelectionModal: React.FC<{
     onSelect: (product: Product) => void;
