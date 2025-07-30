@@ -99,20 +99,13 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       - Raw Description/Details: ${p.description}
     `).join('\n');
     
-    const defaultUserPrompt = `
-      Write a comprehensive and engaging blog post comparing the products provided.
-      The structure should be:
-      1. An introduction.
-      2. A section for each product, including its image and a detailed description.
-      3. A comparison table.
-      4. A final recommendation.
-    `;
-    
     const toneInstruction = settings.tone 
         ? `The overall tone of the post must be: ${settings.tone}.`
         : 'The overall tone of the post must be neutral and informative.';
 
-    const masterPrompt = `
+    // This is the default prompt if no user template is selected.
+    // It combines the master rules with a default task.
+    const defaultPromptTemplate = `
       You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons that can be easily pasted into platforms like WordPress or Blogger.
 
       You will use the user-provided template as a structural guide. However, if the template seems unrelated to comparing products, you MUST IGNORE it and write a standard, high-quality comparison post. The product comparison is always the most important goal.
@@ -135,6 +128,15 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       14. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
 
       ---
+      **Core Task:**
+      Write a comprehensive and engaging blog post comparing the products provided.
+      The structure should be:
+      1. An introduction.
+      2. A section for each product, including its image and a detailed description.
+      3. A comparison table.
+      4. A final recommendation.
+      ---
+
       **Global Settings (General Writing Style):**
       {{GENERAL_SETTINGS}}
       
@@ -146,8 +148,10 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       {{PRODUCT_DETAILS}}
     `;
     
-    let finalPrompt = masterPrompt
-        .replace('{{USER_PROMPT_TEMPLATE}}', templatePrompt || defaultUserPrompt)
+    // If a user template is provided, use it. Otherwise, use the default.
+    const basePrompt = templatePrompt || defaultPromptTemplate;
+    
+    let finalPrompt = basePrompt
         .replace('{{PRODUCT_DETAILS}}', productDetails)
         .replace('{{GENERAL_SETTINGS}}', settings.generalInstructions || 'No general instructions provided.')
         .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.')

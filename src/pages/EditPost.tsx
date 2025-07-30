@@ -127,12 +127,26 @@ const EditPost: React.FC = () => {
 
                 const finalData = JSON.parse(accumulatedJson);
 
-                setTitle(finalData.title);
-                setHeroImageUrl(finalData.heroImageUrl);
-                setContent(finalData.content);
-                setTags(finalData.tags);
+                // Gracefully handle potentially missing data from AI response
+                const newTitle = finalData.title || 'Generation Failed: Untitled';
+                const newHeroImage = finalData.heroImageUrl || '';
+                const newContent = finalData.content || '<p>Error: AI failed to generate content.</p>';
+                const newTags = Array.isArray(finalData.tags) ? finalData.tags : [];
 
-                const updatedPost: BlogPost = { ...newPost, ...finalData, name: newPost.name };
+
+                setTitle(newTitle);
+                setHeroImageUrl(newHeroImage);
+                setContent(newContent);
+                setTags(newTags);
+
+                const updatedPost: BlogPost = { 
+                    ...newPost, 
+                    title: newTitle,
+                    heroImageUrl: newHeroImage,
+                    content: newContent,
+                    tags: newTags,
+                    name: newPost.name 
+                };
                 await db.updatePost(updatedPost);
                 setPost(updatedPost);
                 
@@ -154,7 +168,7 @@ const EditPost: React.FC = () => {
                 setTitle(foundPost.title);
                 setContent(foundPost.content);
                 setHeroImageUrl(foundPost.heroImageUrl);
-                setTags(foundPost.tags);
+                setTags(foundPost.tags || []);
                 
                 if (isInitialGeneration) {
                     await performInitialStream(foundPost);
