@@ -143,17 +143,24 @@ const EditPost: React.FC = () => {
 
         const loadPost = async () => {
             setIsLoading(true);
+            console.log(`[EditPost] Starting to load post with ID: ${postId}`);
             try {
                 const foundPost = await db.getPost(postId);
+                console.log(`[EditPost] Raw data received from server for post ${postId}:`, JSON.parse(JSON.stringify(foundPost)));
+
                 if (!foundPost) throw new Error(`Post with ID ${postId} not found.`);
                 
+                console.log(`[EditPost] Pre-sanitization tags for ${postId}:`, foundPost.tags, `(type: ${typeof foundPost.tags})`);
                 const sanitizedPost = {
                     ...foundPost,
                     tags: Array.isArray(foundPost.tags) ? foundPost.tags : [],
                     products: Array.isArray(foundPost.products) ? foundPost.products : [],
                 };
+                console.log(`[EditPost] Post-sanitization tags for ${postId}:`, sanitizedPost.tags);
                 
+                console.log(`[EditPost] Setting state with sanitized post...`);
                 setPost(sanitizedPost);
+                console.log(`[EditPost] State has been set for post ${postId}.`);
                 
                 if (isInitialGeneration) {
                     await performInitialStream(sanitizedPost);

@@ -12,12 +12,27 @@ const ManagePosts: React.FC = () => {
   const navigate = useNavigate();
 
   const loadPosts = useCallback(() => {
+    console.log('[ManagePosts] Fetching all posts...');
     db.getPosts()
         .then(posts => {
+            console.log('[ManagePosts] Received raw posts from server:', posts);
             const sortedPosts = posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            
+            // Add a client-side check just in case
+            sortedPosts.forEach(p => {
+                if (!Array.isArray(p.tags)) {
+                    console.error(`[ManagePosts] Client-side validation failed! Post ${p.id} has non-array tags:`, p.tags);
+                    p.tags = []; // Sanitize it
+                }
+            });
+
             setPosts(sortedPosts);
+            console.log('[ManagePosts] Posts loaded and state set.');
         })
-        .catch(error => console.error("Failed to load posts:", error));
+        .catch(error => {
+            console.error("[ManagePosts] CRITICAL: Failed to load posts:", error);
+            alert('Failed to load posts. Check console for details.');
+        });
   }, []);
   
   useEffect(() => {
