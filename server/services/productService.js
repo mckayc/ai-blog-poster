@@ -93,7 +93,10 @@ export const updateProduct = async (id, productData) => {
 
 export const deleteProduct = async (id) => {
     const db = await getDb();
-    await db.run('DELETE FROM products WHERE id = ?', id);
+    const result = await db.run('DELETE FROM products WHERE id = ?', id);
+    if (result.changes === 0) {
+        console.warn(`Attempted to delete non-existent product with ID: ${id}`);
+    }
     return { success: true };
 };
 
@@ -107,18 +110,22 @@ export const findOrCreateProductFromScrape = async (scrapedData) => {
     const db = await getDb();
     const { productUrl, title, price, description, imageUrl } = scrapedData;
     
-    let product = await db.get('SELECT * FROM products WHERE productUrl = ?', productUrl);
+    let productRow = await db.get('SELECT * FROM products WHERE productUrl = ?', productUrl);
 
-    if (product) {
+    if (productRow) {
+        let product = parseProduct(productRow);
         // Product exists, update it with fresh data
         product.title = title || product.title;
         product.price = price || product.price;
         product.description = description || product.description;
         product.imageUrl = imageUrl || product.imageUrl;
-        // The user might have given it a better name, so we only update the name if it's the same as the old title
-        if (product.name === product.title || !product.name) {
+        
+        // BUG FIX: Only set the internal name to the scraped title if the name is currently missing or was the same as the *old* title.
+        // This preserves a user-customized internal name.
+        if (!product.name || product.name === productRow.title) {
             product.name = title;
         }
+
         return await updateProduct(product.id, product);
     } else {
         // Product doesn't exist, create a new one

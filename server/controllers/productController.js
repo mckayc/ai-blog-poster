@@ -56,8 +56,8 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await productService.deleteProduct(id);
-        res.json(result);
+        await productService.deleteProduct(id);
+        res.status(200).json({ success: true });
     } catch (error) {
         handle_error(res, error);
     }
