@@ -106,7 +106,7 @@ const Templates: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-white">Manage Templates</h1>
+        <h1 className="text-3xl font-bold text-white">Manage Prompt Templates</h1>
         <Button onClick={() => setEditingTemplate({})}>Create New Template</Button>
       </div>
 

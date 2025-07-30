@@ -1,5 +1,6 @@
 export interface Product {
   id: string;
+  brand: string;
   productUrl: string;
   imageUrl: string;
   price: string;
@@ -9,7 +10,8 @@ export interface Product {
 }
 
 export interface BlogPost {
-  id: string;
+  id:string;
+  name: string;
   title: string;
   content: string; // HTML content
   products: Product[];
@@ -24,7 +26,7 @@ export interface Template {
 
 export interface AppSettings {
   generalInstructions: string;
-  tone: 'friendly' | 'professional' | 'humorous' | 'technical';
+  tone: 'friendly' | 'professional' | 'humorous' | 'technical' | 'casual' | 'witty' | 'authoritative' | '';
   ctaText: string;
   footerText: string;
 }

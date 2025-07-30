@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactQuill from 'react-quill';
-import { BlogPost, Product, Template } from '../types';
+import { BlogPost, Template } from '../types';
 import * as db from '../services/dbService';
+import * as gemini from '../services/geminiService';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import Textarea from '../components/common/Textarea';
 
 const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-    ['link', 'blockquote'],
+    ['link', 'image', 'blockquote'],
     ['clean']
   ],
 };
@@ -20,122 +22,120 @@ const quillModules = {
 const EditPost: React.FC = () => {
     const { postId } = useParams<{ postId: string }>();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [post, setPost] = useState<BlogPost | null>(null);
+    const [name, setName] = useState('');
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+    const [regenerationPrompt, setRegenerationPrompt] = useState('');
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
-    const [isNewPost, setIsNewPost] = useState(false);
+    const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
     const [streamError, setStreamError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-    // This function parses the title from the <h1> tag and updates the post
-    const finalizeStream = useCallback((finalContent: string) => {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = finalContent;
-        const h1 = tempDiv.querySelector('h1');
-        const finalTitle = h1 ? h1.textContent || 'Untitled Post' : 'Untitled Post';
-        
-        if (h1) {
-          h1.remove(); // Remove the h1 from the content itself
-        }
-        const finalHtml = tempDiv.innerHTML;
-
-        setTitle(finalTitle);
-        setContent(finalHtml);
-
-        if (post) {
-            const updatedPost = { ...post, title: finalTitle, content: finalHtml };
-            db.updatePost(updatedPost).catch(e => console.error("Failed to auto-save post after stream.", e));
-        }
-    }, [post]);
-
-    const streamContent = useCallback(async (postToStream: BlogPost) => {
-        setIsStreaming(true);
-        setStreamError(null);
-        setContent(''); // Clear placeholder content
-        
-        const instructions = searchParams.get('instructions') || '';
-        const templateId = searchParams.get('templateId');
-        let templatePrompt = null;
-        if(templateId) {
-            // In a real app, you might fetch this from a context or a dedicated service call
-            const templates: Template[] = await db.getTemplates();
-            templatePrompt = templates.find(t => t.id === templateId)?.prompt || null;
-        }
-
-        try {
-            const response = await fetch('/api/gemini/generate-post-stream', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    products: postToStream.products, 
-                    instructions,
-                    templatePrompt
-                })
-            });
-
-            if (!response.body) throw new Error("Response body is missing.");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedContent = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                accumulatedContent += chunk;
-                setContent(prev => prev + chunk);
-            }
-            finalizeStream(accumulatedContent);
-
-        } catch (error: any) {
-            console.error("Streaming failed:", error);
-            setStreamError(error.message || "An unknown error occurred during streaming.");
-        } finally {
-            setIsStreaming(false);
-            // Clean up URL
-            navigate(`/edit/${postToStream.id}`, { replace: true });
-        }
-    }, [searchParams, navigate, finalizeStream]);
     
     useEffect(() => {
         if (!postId) {
             navigate('/manage');
             return;
         }
-        setIsLoading(true);
-        db.getPost(postId)
-            .then(foundPost => {
-                if (foundPost) {
-                    setPost(foundPost);
-                    setTitle(foundPost.title);
-                    setContent(foundPost.content);
-                    const isNew = searchParams.get('new') === 'true';
-                    setIsNewPost(isNew);
-                    if(isNew){
-                       streamContent(foundPost);
-                    }
-                } else {
-                    throw new Error(`Post with ID ${postId} not found.`);
+
+        const performInitialStream = async (newPost: BlogPost) => {
+            setIsStreaming(true);
+            setStreamError(null);
+            setContent(''); // Clear placeholder content
+
+            try {
+                const instructions = searchParams.get('instructions') || '';
+                const templateId = searchParams.get('templateId');
+                let templatePrompt: string | null = null;
+                if(templateId) {
+                    const templates: Template[] = await db.getTemplates();
+                    templatePrompt = templates.find(t => t.id === templateId)?.prompt || null;
                 }
-            })
-            .catch(err => {
+
+                const response = await fetch('/api/gemini/generate-post-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        products: newPost.products, 
+                        instructions,
+                        templatePrompt
+                    })
+                });
+
+                if (!response.body) throw new Error("Response body is missing.");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulatedContent = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    if (chunk.startsWith('STREAM_ERROR:')) {
+                        throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
+                    }
+                    accumulatedContent += chunk;
+                    setContent(prev => prev + chunk);
+                }
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = accumulatedContent;
+                const h1 = tempDiv.querySelector('h1');
+                const finalTitle = h1 ? h1.textContent || 'Untitled Post' : 'Untitled Post';
+                if (h1) h1.remove();
+                const finalHtml = tempDiv.innerHTML;
+
+                setTitle(finalTitle);
+                setContent(finalHtml);
+
+                const updatedPost = { ...newPost, name: newPost.name, title: finalTitle, content: finalHtml };
+                await db.updatePost(updatedPost);
+                setPost(updatedPost);
+                
+            } catch (error: any) {
+                console.error("Streaming failed:", error);
+                setStreamError(error.message || "An unknown error occurred during streaming.");
+            } finally {
+                setIsStreaming(false);
+                setSearchParams({}, { replace: true });
+            }
+        };
+
+        const loadPost = async () => {
+            setIsLoading(true);
+            try {
+                const foundPost = await db.getPost(postId);
+                setPost(foundPost);
+                setName(foundPost.name);
+                setTitle(foundPost.title);
+                setContent(foundPost.content);
+                
+                const isNew = searchParams.get('new') === 'true';
+                if (isNew) {
+                    await performInitialStream(foundPost);
+                }
+
+            } catch (err) {
                 console.error(err);
+                alert(`Failed to load post: ${err instanceof Error ? err.message : 'Unknown error'}`);
                 navigate('/manage');
-            })
-            .finally(() => setIsLoading(false));
-    }, [postId, navigate]); // Only run when postId changes
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadPost();
+    }, [postId, navigate, searchParams, setSearchParams]);
 
     const handleSave = async () => {
         if (!post) return;
         setIsSaving(true);
-        const updatedPost = { ...post, title, content };
+        const updatedPost = { ...post, name, title, content };
         try {
             await db.updatePost(updatedPost);
             setPost(updatedPost);
@@ -144,6 +144,21 @@ const EditPost: React.FC = () => {
             alert('Failed to save post.');
         } finally {
             setIsSaving(false);
+        }
+    };
+    
+    const handleGenerateTitle = async () => {
+        if (!post || post.products.length === 0) return;
+        setIsGeneratingTitle(true);
+        try {
+            const titles = await gemini.generateTitleIdea(post.products);
+            if (titles && titles.length > 0) {
+                setTitle(titles[0]);
+            }
+        } catch (error: any) {
+            setStreamError(error.message || 'Failed to generate title.');
+        } finally {
+            setIsGeneratingTitle(false);
         }
     };
 
@@ -155,6 +170,64 @@ const EditPost: React.FC = () => {
         } catch (error) {
             console.error(error);
             alert('Failed to delete post.');
+        }
+    };
+
+    const handleRegenerate = async () => {
+        if (!regenerationPrompt.trim() || !post) return;
+        setIsStreaming(true);
+        setStreamError(null);
+        
+        const existingHtml = `<h1>${title}</h1>\n${content}`;
+        const originalContent = content; // Keep a copy to restore on error
+        setContent(''); // Clear for streaming
+
+        try {
+            const response = await fetch('/api/gemini/regenerate-post-stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    existingContent: existingHtml,
+                    newInstructions: regenerationPrompt,
+                })
+            });
+
+            if (!response.body) throw new Error("Response body is missing.");
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                if (chunk.startsWith('STREAM_ERROR:')) {
+                    throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
+                }
+                accumulatedContent += chunk;
+                setContent(prev => prev + chunk);
+            }
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = accumulatedContent;
+            const h1 = tempDiv.querySelector('h1');
+            const finalTitle = h1 ? h1.textContent || title : title;
+            if (h1) h1.remove();
+            const finalHtml = tempDiv.innerHTML;
+
+            setTitle(finalTitle);
+            setContent(finalHtml);
+
+            const updatedPost = { ...post, name, title: finalTitle, content: finalHtml };
+            await db.updatePost(updatedPost);
+            setPost(updatedPost);
+
+        } catch (error: any) {
+            setStreamError(error.message || "An unknown regeneration error occurred.");
+            setContent(originalContent);
+        } finally {
+            setIsStreaming(false);
+            setRegenerationPrompt('');
         }
     };
     
@@ -201,15 +274,41 @@ const EditPost: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
                 <Card>
-                    <Input 
-                        label="Post Title" 
-                        id="post-title" 
-                        value={title} 
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="!text-xl !py-3 font-bold"
-                        disabled={isStreaming}
-                    />
+                    <div className="space-y-4">
+                        <Input 
+                            label="Internal Post Name (for your reference)" 
+                            id="post-name" 
+                            value={name} 
+                            onChange={(e) => setName(e.target.value)}
+                            disabled={isStreaming}
+                        />
+                        <div>
+                             <label htmlFor="post-title" className="block text-sm font-medium text-slate-300 mb-1">
+                                Blog Post Title
+                              </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    id="post-title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition !text-xl !py-3 font-bold flex-grow"
+                                    disabled={isStreaming || isGeneratingTitle}
+                                />
+                                <Button onClick={handleGenerateTitle} disabled={isStreaming || isGeneratingTitle} variant="secondary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isGeneratingTitle ? 'animate-spin' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                                    </svg>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </Card>
+                 {streamError && (
+                    <Card className="border border-red-500 bg-red-900/30">
+                        <h3 className="text-lg font-semibold text-red-300 mb-2">Error</h3>
+                        <p className="text-red-300 text-sm font-mono">{streamError}</p>
+                    </Card>
+                )}
                 <Card className="!p-0">
                     {isStreaming && (
                          <div className="p-4 border-b border-slate-700 text-yellow-300 flex items-center">
@@ -242,6 +341,23 @@ const EditPost: React.FC = () => {
                         </Button>
                         <Button variant="danger" onClick={() => setShowDeleteConfirm(true)} className="w-full" disabled={isStreaming}>
                             Delete Post
+                        </Button>
+                    </div>
+                </Card>
+                <Card>
+                    <h2 className="text-lg font-semibold text-white mb-4">Regenerate Post</h2>
+                    <div className="space-y-2">
+                        <Textarea
+                            label="Instructions for AI"
+                            id="regeneration-prompt"
+                            value={regenerationPrompt}
+                            onChange={e => setRegenerationPrompt(e.target.value)}
+                            rows={5}
+                            placeholder="e.g., 'Make the tone more humorous', or 'Add a section about cleaning and maintenance.'"
+                            disabled={isStreaming}
+                        />
+                        <Button onClick={handleRegenerate} disabled={isStreaming || !regenerationPrompt.trim()} className="w-full">
+                            {isStreaming ? 'Processing...' : 'Regenerate'}
                         </Button>
                     </div>
                 </Card>

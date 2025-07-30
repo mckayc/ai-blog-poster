@@ -72,6 +72,27 @@ export const generatePostStream = async (req, res) => {
     }
 };
 
+export const regeneratePostStream = async (req, res) => {
+    try {
+        const { existingContent, newInstructions } = req.body;
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        const stream = await geminiService.regenerateBlogPostStream(existingContent, newInstructions);
+
+        for await (const chunk of stream) {
+            res.write(chunk.text);
+        }
+        res.end();
+
+    } catch (error) {
+        console.error("--- REGENERATION STREAMING CONTROLLER ERROR ---");
+        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        res.end(`STREAM_ERROR: ${error.message}`);
+    }
+};
+
 export const fetchProduct = async (req, res) => {
     try {
         const { productUrl } = req.body;
@@ -80,7 +101,17 @@ export const fetchProduct = async (req, res) => {
     } catch(error) {
         handle_error(res, error);
     }
-}
+};
+
+export const generateTitleIdea = async (req, res) => {
+    try {
+        const { products } = req.body;
+        const result = await geminiService.generateTitleIdea(products);
+        res.json(result);
+    } catch(error) {
+        handle_error(res, error);
+    }
+};
 
 export const testConnection = async (req, res) => {
     try {

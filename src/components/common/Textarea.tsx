@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label: string;
+  label?: string;
 }
 
 const Textarea: React.FC<TextareaProps> = ({ label, id, className, ...props }) => {
@@ -9,9 +9,11 @@ const Textarea: React.FC<TextareaProps> = ({ label, id, className, ...props }) =
   
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-1">
-        {label}
-      </label>
+      {label && (
+        <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-1">
+          {label}
+        </label>
+      )}
       <textarea
         id={id}
         className={`${baseClasses} ${className || ''}`}

@@ -18,26 +18,27 @@ export const getPostById = async (id) => {
 };
 
 export const saveOrUpdatePost = async (postData) => {
-    const { id, title, content, products, createdAt } = postData;
+    const { id, name, title, content, products, createdAt } = postData;
     const db = await getDb();
 
     if (id) { // Update
         await db.run(
-            'UPDATE posts SET title = ?, content = ?, products = ?, createdAt = ? WHERE id = ?',
-            title, content, JSON.stringify(products || []), createdAt, id
+            'UPDATE posts SET name = ?, title = ?, content = ?, products = ?, createdAt = ? WHERE id = ?',
+            name, title, content, JSON.stringify(products || []), createdAt, id
         );
         return { success: true, id: id };
     } else { // Create a new post (can be a placeholder)
         const newPost = {
             id: crypto.randomUUID(),
-            title: title || 'New Post',
+            name: name || 'New Post',
+            title: title || 'Untitled Post',
             content: content || '',
             products: JSON.stringify(products || []),
             createdAt: new Date().toISOString()
         };
         await db.run(
-            'INSERT INTO posts (id, title, content, products, createdAt) VALUES (?, ?, ?, ?, ?)',
-            newPost.id, newPost.title, newPost.content, newPost.products, newPost.createdAt
+            'INSERT INTO posts (id, name, title, content, products, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+            newPost.id, newPost.name, newPost.title, newPost.content, newPost.products, newPost.createdAt
         );
         return { success: true, id: newPost.id };
     }

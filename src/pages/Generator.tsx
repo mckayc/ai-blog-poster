@@ -36,7 +36,7 @@ const ProductForm: React.FC<{
     setFetchError(null);
     try {
         const data = await fetchProductData(product.productUrl);
-        onUpdate({ ...product, ...data });
+        onUpdate({ ...product, ...data, brand: product.brand }); // Preserve manually entered brand
     } catch (e: any) {
         setFetchError(e.message || "An unknown error occurred during fetch.");
     } finally {
@@ -66,12 +66,15 @@ const ProductForm: React.FC<{
         {isFetching && <div className="text-sm text-yellow-400">Fetching data from URL, please wait...</div>}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <Input label="Product Title" id={`title-${product.id}`} value={product.title} onChange={(e) => handleChange('title', e.target.value)} placeholder="e.g., Wireless Noise Cancelling Headphones"/>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <Input label="Product Title" id={`title-${product.id}`} value={product.title} onChange={(e) => handleChange('title', e.target.value)} placeholder="e.g., Wireless Noise Cancelling Headphones" className="md:col-span-2"/>
+        <Input label="Product Brand Name" id={`brand-${product.id}`} value={product.brand} onChange={(e) => handleChange('brand', e.target.value)} placeholder="e.g., Sony" />
         <Input label="Price" id={`price-${product.id}`} value={product.price} onChange={(e) => handleChange('price', e.target.value)} placeholder="e.g., $99.99" />
-        <Input label="Image URL" id={`imageUrl-${product.id}`} value={product.imageUrl} onChange={(e) => handleChange('imageUrl', e.target.value)} placeholder="https://..."/>
-        <Input label="Affiliate Link" id={`affiliateLink-${product.id}`} value={product.affiliateLink} onChange={(e) => handleChange('affiliateLink', e.target.value)} placeholder="https://amzn.to/..."/>
-        <div className="md:col-span-2">
+        <Input label="Image URL" id={`imageUrl-${product.id}`} value={product.imageUrl} onChange={(e) => handleChange('imageUrl', e.target.value)} placeholder="https://..." className="md:col-span-2"/>
+        <div className="md:col-span-3">
+            <Input label="Affiliate Link" id={`affiliateLink-${product.id}`} value={product.affiliateLink} onChange={(e) => handleChange('affiliateLink', e.target.value)} placeholder="https://amzn.to/..."/>
+        </div>
+        <div className="md:col-span-3">
           <Textarea label="Description / Key Features" id={`description-${product.id}`} value={product.description} onChange={(e) => handleChange('description', e.target.value)} placeholder="Paste key features or description here..." rows={4}/>
         </div>
       </div>
@@ -97,7 +100,7 @@ const InstructionModal: React.FC<{ onGenerate: (instructions: string) => void; o
 };
 
 const Generator: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([{ id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
+  const [products, setProducts] = useState<Product[]>([{ id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '', brand: '' }]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
   const [isLoading, setIsLoading] = useState(false);
@@ -112,7 +115,7 @@ const Generator: React.FC = () => {
   }, []);
 
   const addProduct = () => {
-    setProducts([...products, { id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '' }]);
+    setProducts([...products, { id: generateUUID(), productUrl: '', title: '', price: '', imageUrl: '', description: '', affiliateLink: '', brand: '' }]);
   };
   
   const updateProduct = (index: number, updatedProduct: Product) => {
@@ -147,6 +150,7 @@ const Generator: React.FC = () => {
       const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
       const newPostData = {
         products: products,
+        name: `Post about ${products.map(p => p.title || 'product').join(' and ')}`, // Set internal name
         title: `New Post - ${new Date().toLocaleDateString()}`,
         content: '', // Start with empty content
       };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { BlogPost } from '../types';
 import * as db from '../services/dbService';
 import Card from '../components/common/Card';
@@ -8,6 +8,7 @@ import Button from '../components/common/Button';
 const ManagePosts: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
+  const navigate = useNavigate();
 
   const loadPosts = useCallback(() => {
     db.getPosts()
@@ -57,9 +58,7 @@ const ManagePosts: React.FC = () => {
                 </p>
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-2 flex-shrink-0">
-                <Link to={`/edit/${post.id}`}>
-                    <Button variant="secondary">Edit</Button>
-                </Link>
+                <Button variant="secondary" onClick={() => navigate(`/edit/${post.id}`)}>Edit</Button>
                 <Button variant="danger" onClick={() => setPostToDelete(post)}>Delete</Button>
               </div>
             </Card>

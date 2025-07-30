@@ -12,7 +12,9 @@ router.delete('/posts/:id', postController.deletePostById);
 
 // --- Gemini API Proxy Routes ---
 router.post('/gemini/generate-post-stream', postController.generatePostStream);
+router.post('/gemini/regenerate-post-stream', postController.regeneratePostStream);
 router.post('/gemini/fetch-product', postController.fetchProduct);
+router.post('/gemini/generate-title', postController.generateTitleIdea);
 router.post('/test-connection', postController.testConnection);
 
 // --- Settings and API Key Routes ---
@@ -24,7 +26,7 @@ router.get('/settings', async (req, res) => {
     const result = await db.get('SELECT value FROM settings WHERE key = ?', SETTINGS_KEY);
     const defaultSettings = { 
         generalInstructions: '', 
-        tone: 'friendly', 
+        tone: '', 
         ctaText: 'Check Price', 
         footerText: 'As an affiliate, I earn from qualifying purchases. This does not affect the price you pay.' 
     };

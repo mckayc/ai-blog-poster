@@ -28,3 +28,11 @@ export const fetchProductData = async (
       body: JSON.stringify({ productUrl })
   }).then(handleResponse);
 };
+
+export const generateTitleIdea = async (products: Product[]): Promise<string[]> => {
+    return fetch('/api/gemini/generate-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products })
+    }).then(handleResponse);
+};

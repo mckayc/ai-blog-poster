@@ -13,6 +13,19 @@ if (!fs.existsSync(DB_PATH)) {
 
 let db;
 
+// Basic migration logic
+const runMigrations = async (dbInstance) => {
+    // Migration 1: Add 'name' column to posts table
+    const columns = await dbInstance.all('PRAGMA table_info(posts)');
+    const hasNameColumn = columns.some(c => c.name === 'name');
+    if (!hasNameColumn) {
+        console.log("Running migration: Adding 'name' column to 'posts' table.");
+        await dbInstance.exec('ALTER TABLE posts ADD COLUMN name TEXT');
+        // Backfill name with existing title for old records
+        await dbInstance.exec('UPDATE posts SET name = title WHERE name IS NULL');
+    }
+}
+
 export const getDb = async () => {
   if (db) return db;
 
@@ -29,6 +42,7 @@ export const getDb = async () => {
 
     CREATE TABLE IF NOT EXISTS posts (
       id TEXT PRIMARY KEY,
+      name TEXT,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
       products TEXT,
@@ -42,6 +56,9 @@ export const getDb = async () => {
     );
   `);
     
+  // Run migrations after ensuring tables exist
+  await runMigrations(db);
+
   console.log('Database connected and tables ensured.');
   return db;
 };

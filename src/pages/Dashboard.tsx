@@ -11,7 +11,7 @@ type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 const defaultSettings: AppSettings = {
     generalInstructions: '',
-    tone: 'friendly',
+    tone: '',
     ctaText: 'Check Price',
     footerText: 'As an affiliate, I earn from qualifying purchases. This does not affect the price you pay.'
 };
@@ -115,10 +115,14 @@ const Dashboard: React.FC = () => {
                       value={settings.tone}
                       onChange={e => handleSettingsChange('tone', e.target.value as AppSettings['tone'])}
                   >
+                      <option value="">Select a Tone (Optional)</option>
                       <option value="friendly">Friendly & Conversational</option>
                       <option value="professional">Professional & Formal</option>
                       <option value="humorous">Humorous & Witty</option>
                       <option value="technical">Technical & In-Depth</option>
+                      <option value="casual">Casual & Relaxed</option>
+                      <option value="witty">Witty & Clever</option>
+                      <option value="authoritative">Authoritative & Confident</option>
                   </select>
                </div>
                 <Input
