@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ReactQuill, { Quill } from 'react-quill';
 import ImageResize from 'quill-image-resize-module-react';
+import QuillBetterTable from 'quill-better-table';
 import { BlogPost, Product } from '../types';
 import * as db from '../services/dbService';
 import * as gemini from '../services/geminiService';
@@ -11,15 +12,18 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingOverlay from '../components/common/LoadingOverlay';
 
-// Register the stable image resize module
-Quill.register({ 'modules/imageResize': ImageResize });
+// Register the stable image resize module and the better table module
+Quill.register({ 
+    'modules/imageResize': ImageResize,
+    'modules/better-table': QuillBetterTable
+}, true);
 
 const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike', 'blockquote'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-    ['link', 'image', 'video'],
+    ['link', 'image', 'video', 'table'],
     [{ 'align': [] }],
     [{ 'color': [] }, { 'background': [] }],
     ['clean']
@@ -28,6 +32,25 @@ const quillModules = {
     parchment: Quill.import('parchment'),
     modules: ['Resize', 'DisplaySize']
   },
+  table: false, // Important to disable the default table module
+  'better-table': {
+    operationMenu: {
+      items: {
+        unmergeCells: { text: 'Unmerge cells' },
+        mergeCells: { text: 'Merge cells' },
+        deleteRow: { text: 'Delete row' },
+        deleteColumn: { text: 'Delete column' },
+        insertRowAbove: { text: 'Insert row above' },
+        insertRowBelow: { text: 'Insert row below' },
+        insertColumnLeft: { text: 'Insert column left' },
+        insertColumnRight: { text: 'Insert column right' },
+        deleteTable: { text: 'Delete table' }
+      },
+    }
+  },
+  keyboard: {
+    bindings: QuillBetterTable.keyboardBindings
+  }
 };
 
 const EditPost: React.FC = () => {
@@ -206,6 +229,10 @@ const EditPost: React.FC = () => {
                 .ql-editor { min-height: 600px; font-size: 1rem; line-height: 1.6; background-color: #f8fafc; color: #0f172a; }
                 .ql-toolbar { background-color: #f1f5f9; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; border: 1px solid #e2e8f0 !important; }
                 .ql-container { border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem; border: 1px solid #e2e8f0 !important; }
+                .ql-snow .ql-picker.ql-table .ql-picker-label::before { content: 'Table'; }
+                .ql-snow .ql-picker.ql-table .ql-picker-options {
+                    padding: 4px 8px;
+                }
             `}</style>
             
             <Card className="!p-4 mb-6">

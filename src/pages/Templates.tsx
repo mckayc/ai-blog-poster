@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Template } from '../types.ts';
-import * as db from '../services/dbService.ts';
+import { Template } from '../types';
+import * as db from '../services/dbService';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
