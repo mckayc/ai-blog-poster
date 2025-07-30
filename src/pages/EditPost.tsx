@@ -1,9 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import ReactQuill, { Quill } from 'react-quill';
-import ImageResize from 'quill-image-resize-module-react';
-import QuillBetterTable from 'quill-better-table';
+import { Editor } from '@tinymce/tinymce-react';
 import { BlogPost, Product } from '../types';
 import * as db from '../services/dbService';
 import * as gemini from '../services/geminiService';
@@ -12,52 +10,13 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingOverlay from '../components/common/LoadingOverlay';
 
-// Register the stable image resize module and the better table module
-Quill.register({ 
-    'modules/imageResize': ImageResize,
-    'modules/better-table': QuillBetterTable
-}, true);
-
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-    [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-    ['link', 'image', 'video', 'table'],
-    [{ 'align': [] }],
-    [{ 'color': [] }, { 'background': [] }],
-    ['clean']
-  ],
-  imageResize: {
-    parchment: Quill.import('parchment'),
-    modules: ['Resize', 'DisplaySize']
-  },
-  table: false, // Important to disable the default table module
-  'better-table': {
-    operationMenu: {
-      items: {
-        unmergeCells: { text: 'Unmerge cells' },
-        mergeCells: { text: 'Merge cells' },
-        deleteRow: { text: 'Delete row' },
-        deleteColumn: { text: 'Delete column' },
-        insertRowAbove: { text: 'Insert row above' },
-        insertRowBelow: { text: 'Insert row below' },
-        insertColumnLeft: { text: 'Insert column left' },
-        insertColumnRight: { text: 'Insert column right' },
-        deleteTable: { text: 'Delete table' }
-      },
-    }
-  },
-  keyboard: {
-    bindings: QuillBetterTable.keyboardBindings
-  }
-};
 
 const EditPost: React.FC = () => {
     const { postId } = useParams<{ postId?: string }>();
     const navigate = useNavigate();
     const location = useLocation();
     const isEditing = !!postId;
+    const editorRef = useRef<any>(null);
 
     const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '' });
     const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'idle'>('loading');
@@ -170,7 +129,7 @@ const EditPost: React.FC = () => {
         }
     }, [postId, isEditing, navigate, location.search, generateStream]);
 
-    const handleContentChange = (content: string) => {
+    const handleContentChange = (content: string, editor: any) => {
         setPost(p => ({ ...p, content }));
     };
     
@@ -225,16 +184,6 @@ const EditPost: React.FC = () => {
 
     return (
         <div>
-            <style>{`
-                .ql-editor { min-height: 600px; font-size: 1rem; line-height: 1.6; background-color: #f8fafc; color: #0f172a; }
-                .ql-toolbar { background-color: #f1f5f9; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; border: 1px solid #e2e8f0 !important; }
-                .ql-container { border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem; border: 1px solid #e2e8f0 !important; }
-                .ql-snow .ql-picker.ql-table .ql-picker-label::before { content: 'Table'; }
-                .ql-snow .ql-picker.ql-table .ql-picker-options {
-                    padding: 4px 8px;
-                }
-            `}</style>
-            
             <Card className="!p-4 mb-6">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <h1 className="text-2xl font-bold text-white line-clamp-1">{isEditing ? `Editing: ${post.name || 'Untitled'}` : 'Create New Post'}</h1>
@@ -279,13 +228,32 @@ const EditPost: React.FC = () => {
                     disabled={isBusy}
                 />
 
-                <div className="bg-white rounded-lg text-slate-900">
-                    <ReactQuill 
-                        theme="snow" 
-                        value={post.content || ''} 
-                        onChange={handleContentChange}
-                        modules={quillModules}
-                        readOnly={isBusy}
+                <div>
+                    <Editor
+                        apiKey='no-api-key' // Using the free tier for this demo
+                        onInit={(evt, editor) => editorRef.current = editor}
+                        value={post.content || ''}
+                        onEditorChange={handleContentChange}
+                        disabled={isBusy}
+                        init={{
+                          height: 700,
+                          menubar: 'file edit view insert format tools table help',
+                          plugins: [
+                            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                            'insertdatetime', 'media', 'table', 'help', 'wordcount', 'autoresize', 'imagetools'
+                          ],
+                          toolbar: 'undo redo | blocks | ' +
+                            'bold italic forecolor | alignleft aligncenter ' +
+                            'alignright alignjustify | bullist numlist outdent indent | ' +
+                            'link image media | table | code | removeformat | help',
+                          content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:16px }',
+                          skin: 'oxide-dark',
+                          content_css: 'dark',
+                          image_advtab: true,
+                          table_toolbar: "tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol",
+                          autoresize_bottom_margin: 50,
+                        }}
                     />
                 </div>
             </div>
