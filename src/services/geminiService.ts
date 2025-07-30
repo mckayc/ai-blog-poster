@@ -1,5 +1,5 @@
 
-import { Product } from '../types.ts';
+import { Product } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
@@ -20,15 +20,21 @@ export const testApiKey = async (): Promise<boolean> => {
   }
 };
 
-export const generatePostStream = async (products: Product[], instructions: string, templateId: string | null): Promise<Response> => {
+export const generatePostStream = async (products: Product[], instructions: string, templateId: string | null, includeComparisonCards: boolean): Promise<Response> => {
     const response = await fetch('/api/gemini/generate-post-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, instructions, templateId })
+        body: JSON.stringify({ products, instructions, templateId, includeComparisonCards })
     });
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'An unknown API error occurred during streaming setup.' }));
+        const errorText = await response.text();
+        let error;
+        try {
+            error = JSON.parse(errorText);
+        } catch(e) {
+            error = { message: errorText || 'An unknown API error occurred during streaming setup.' };
+        }
         throw new Error(error.message);
     }
 

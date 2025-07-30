@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Sidebar from './components/Sidebar.tsx';
-import Dashboard from './pages/Dashboard.tsx';
-import Generator from './pages/Generator.tsx';
-import ManagePosts from './pages/ManagePosts.tsx';
-import Templates from './pages/Templates.tsx';
-import EditPost from './pages/EditPost.tsx';
-import ManageProducts from './pages/ManageProducts.tsx';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import Generator from './pages/Generator';
+import ManagePosts from './pages/ManagePosts';
+import Templates from './pages/Templates';
+import EditPost from './pages/EditPost';
+import ManageProducts from './pages/ManageProducts';
 
 const App: React.FC = () => {
   return (
