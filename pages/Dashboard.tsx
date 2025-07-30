@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import * as db from '../services/dbService';
-import { testApiKey } from '../services/geminiService';
+import * as db from '../services/dbService.ts';
+import { testApiKey } from '../services/geminiService.ts';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';

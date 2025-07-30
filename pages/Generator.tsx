@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Product, BlogPost, Template } from '../types';
-import * as db from '../services/dbService';
-import { generateBlogPost, fetchProductData } from '../services/geminiService';
+import { Product, BlogPost, Template } from '../types.ts';
+import * as db from '../services/dbService.ts';
+import { generateBlogPost, fetchProductData } from '../services/geminiService.ts';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
