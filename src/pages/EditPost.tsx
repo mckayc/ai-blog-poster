@@ -3,8 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactQuill, { Quill } from 'react-quill';
 import ImageResize from 'quill-image-resize-module-react';
-import quillBetterTable from 'quill-better-table';
-import { BlogPost, Template, Product } from '../types.ts';
+import { BlogPost, Product } from '../types.ts';
 import * as db from '../services/dbService.ts';
 import * as gemini from '../services/geminiService.ts';
 import Card from '../components/common/Card.tsx';
@@ -13,10 +12,9 @@ import Input from '../components/common/Input.tsx';
 import Textarea from '../components/common/Textarea.tsx';
 import LoadingOverlay from '../components/common/LoadingOverlay.tsx';
 
-// Register Quill modules for image resizing and tables.
+// Register Quill modules for image resizing.
 Quill.register({
     'modules/imageResize': ImageResize,
-    'modules/better-table': quillBetterTable
 }, true);
 
 const quillModules = {
@@ -30,8 +28,7 @@ const quillModules = {
     ['clean']
   ],
   imageResize: { parchment: Quill.import('parchment'), modules: ['Resize', 'DisplaySize', 'Toolbar'] },
-  table: false,
-  'better-table': { operationMenu: { items: { unmergeCells: { text: 'Unmerge cells' } } } },
+  table: true, // Use the standard, stable table module
 };
 
 const defaultPost: BlogPost = {

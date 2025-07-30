@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Template } from '../types.js';
-import * as db from '../services/dbService.js';
-import Card from '../components/common/Card.js';
-import Button from '../components/common/Button.js';
-import Input from '../components/common/Input.js';
-import Textarea from '../components/common/Textarea.js';
+import { Template } from '../types';
+import * as db from '../services/dbService';
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Textarea from '../components/common/Textarea';
 
 const TemplateModal: React.FC<{
   template: Partial<Template> | null;

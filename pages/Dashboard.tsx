@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import * as db from '../services/dbService.js';
-import { testApiKey } from '../services/geminiService.js';
-import Card from '../components/common/Card.js';
-import Input from '../components/common/Input.js';
-import Textarea from '../components/common/Textarea.js';
-import Button from '../components/common/Button.js';
+import * as db from '../services/dbService';
+import { testApiKey } from '../services/geminiService';
+import Card from '../components/common/Card';
+import Input from '../components/common/Input';
+import Textarea from '../components/common/Textarea';
+import Button from '../components/common/Button';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 

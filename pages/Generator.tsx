@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Product, BlogPost, Template } from '../types.js';
-import * as db from '../services/dbService.js';
-import { generateBlogPost, fetchProductData } from '../services/geminiService.js';
-import Card from '../components/common/Card.js';
-import Input from '../components/common/Input.js';
-import Textarea from '../components/common/Textarea.js';
-import Button from '../components/common/Button.js';
+import { Product, BlogPost, Template } from '../types';
+import * as db from '../services/dbService';
+import { generateBlogPost, fetchProductData } from '../services/geminiService';
+import Card from '../components/common/Card';
+import Input from '../components/common/Input';
+import Textarea from '../components/common/Textarea';
+import Button from '../components/common/Button';
 
 const ProductForm: React.FC<{ 
     product: Product; 

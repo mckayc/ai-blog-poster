@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { BlogPost } from '../types.js';
-import * as db from '../services/dbService.js';
-import Card from '../components/common/Card.js';
-import Button from '../components/common/Button.js';
-import Textarea from '../components/common/Textarea.js';
+import { BlogPost } from '../types';
+import * as db from '../services/dbService';
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Textarea from '../components/common/Textarea';
 
 const EditModal: React.FC<{ post: BlogPost; onSave: (updatedPost: BlogPost) => void; onClose: () => void; }> = ({ post, onSave, onClose }) => {
   const [title, setTitle] = useState(post.title);
