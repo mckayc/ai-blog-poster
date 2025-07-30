@@ -3,18 +3,18 @@ import { BlogPost, Template, AppSettings, Product } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'An API error occurred');
+        const error = await res.json().catch(() => ({ message: 'An API error occurred and the response body was not valid JSON.' }));
+        throw new Error(error.message || 'An unknown API error occurred');
     }
     return res.json();
 };
 
 // --- Settings Management ---
-export const getSettings = async (): Promise<AppSettings> => {
+export const getSettings = (): Promise<AppSettings> => {
     return fetch('/api/settings').then(handleResponse);
 };
 
-export const saveSettings = async (settings: AppSettings): Promise<any> => {
+export const saveSettings = (settings: AppSettings): Promise<any> => {
     return fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,7 +24,7 @@ export const saveSettings = async (settings: AppSettings): Promise<any> => {
 
 
 // --- API Key Management ---
-export const getApiKeyStatus = async (): Promise<{ apiKey: string | null }> => {
+export const getApiKeyStatus = (): Promise<{ apiKey: 'SET' | null }> => {
     return fetch('/api/api-key').then(handleResponse);
 }
 
@@ -45,7 +45,7 @@ export const savePost = (post: Partial<BlogPost>): Promise<{ success: boolean; i
     }).then(handleResponse);
 };
 
-export const updatePost = (updatedPost: BlogPost): Promise<any> => {
+export const updatePost = (updatedPost: Partial<BlogPost>): Promise<any> => {
     return fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,7 +62,7 @@ export const getTemplates = (): Promise<Template[]> => {
     return fetch('/api/templates').then(handleResponse);
 };
 
-export const saveTemplate = (template: Omit<Template, 'id'>): Promise<any> => {
+export const saveTemplate = (template: Omit<Template, 'id'> & { id?: string }): Promise<any> => {
     return fetch('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,31 +70,24 @@ export const saveTemplate = (template: Omit<Template, 'id'>): Promise<any> => {
     }).then(handleResponse);
 };
 
-export const updateTemplate = (updatedTemplate: Template): Promise<any> => {
-    return fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedTemplate)
-    }).then(handleResponse);
-};
 
 export const deleteTemplate = (templateId: string): Promise<any> => {
     return fetch(`/api/templates/${templateId}`, { method: 'DELETE' }).then(handleResponse);
 };
 
 // --- Product Management ---
-export const getProducts = async (filters: {search?: string, category?: string}): Promise<Product[]> => {
+export const getProducts = (filters: {search?: string, category?: string}): Promise<Product[]> => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.category) params.set('category', filters.category);
     return fetch(`/api/products?${params.toString()}`).then(handleResponse);
 };
 
-export const getUniqueCategories = async (): Promise<string[]> => {
+export const getUniqueCategories = (): Promise<string[]> => {
     return fetch('/api/products/categories').then(handleResponse);
 };
 
-export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
+export const saveProduct = (product: Partial<Product>): Promise<Product> => {
     const url = product.id ? `/api/products/${product.id}` : '/api/products';
     const method = product.id ? 'PUT' : 'POST';
     return fetch(url, {
@@ -104,11 +97,11 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
     }).then(handleResponse);
 };
 
-export const deleteProduct = async (productId: string): Promise<any> => {
+export const deleteProduct = (productId: string): Promise<any> => {
     return fetch(`/api/products/${productId}`, { method: 'DELETE' }).then(handleResponse);
 };
 
-export const fetchAndSaveProduct = async (productUrl: string): Promise<Product> => {
+export const fetchAndSaveProduct = (productUrl: string): Promise<Product> => {
     return fetch('/api/products/fetch-and-save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

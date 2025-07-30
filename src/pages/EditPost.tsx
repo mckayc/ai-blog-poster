@@ -4,14 +4,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactQuill, { Quill } from 'react-quill';
 import ImageResize from 'quill-image-resize-module-react';
 import quillBetterTable from 'quill-better-table';
-import { BlogPost, Template, Product } from '../types';
-import * as db from '../services/dbService';
-import * as gemini from '../services/geminiService';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
-import LoadingOverlay from '../components/common/LoadingOverlay';
+import { BlogPost, Template, Product } from '../types.ts';
+import * as db from '../services/dbService.ts';
+import * as gemini from '../services/geminiService.ts';
+import Card from '../components/common/Card.tsx';
+import Button from '../components/common/Button.tsx';
+import Input from '../components/common/Input.tsx';
+import Textarea from '../components/common/Textarea.tsx';
+import LoadingOverlay from '../components/common/LoadingOverlay.tsx';
 
 // Register Quill modules for image resizing and tables.
 Quill.register({

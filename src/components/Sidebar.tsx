@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import * as db from '../services/dbService';
+import * as db from '../services/dbService.ts';
 
 const navLinkClasses = 'flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200';
 const activeLinkClasses = 'bg-slate-700 text-white';

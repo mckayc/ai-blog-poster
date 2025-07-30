@@ -1,42 +1,50 @@
 
-import React, { useState, useEffect } from 'react';
-import * as db from '../services/dbService';
-import { testApiKey } from '../services/geminiService';
-import Card from '../components/common/Card';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
-import Button from '../components/common/Button';
+import React, { useState, useEffect, useCallback } from 'react';
+import * as db from '../services/dbService.ts';
+import { testApiKey } from '../services/geminiService.ts';
+import { AppSettings } from '../types.ts';
+import Card from '../components/common/Card.tsx';
+import Textarea from '../components/common/Textarea.tsx';
+import Button from '../components/common/Button.tsx';
+import Input from '../components/common/Input.tsx';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
+type ApiKeyStatus = 'loading' | 'set' | 'not_set';
 
 const Dashboard: React.FC = () => {
-  const [apiKey, setApiKey] = useState('');
-  const [settings, setSettings] = useState('');
+  const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('loading');
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [testStatus, setTestStatus] = useState<TestStatus>('idle');
-  const [keySaved, setKeySaved] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    setApiKey(db.getApiKey() || '');
-    setSettings(db.getSettings() || '');
+    db.getApiKeyStatus().then(status => {
+      setApiKeyStatus(status.apiKey === 'SET' ? 'set' : 'not_set');
+    }).catch(() => setApiKeyStatus('not_set'));
+    
+    db.getSettings().then(setSettings).catch(e => console.error("Failed to load settings", e));
   }, []);
 
-  const handleSaveApiKey = () => {
-    db.saveApiKey(apiKey);
-    setKeySaved(true);
-    setTestStatus('idle');
-    setTimeout(() => setKeySaved(false), 3000);
-  };
-
-  const handleSaveSettings = () => {
-    db.saveSettings(settings);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 3000);
+  const handleSaveSettings = async () => {
+    if (!settings) return;
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+        await db.saveSettings(settings);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (e) {
+        alert("Failed to save settings. See console for details.");
+        console.error(e);
+    } finally {
+        setIsSaving(false);
+    }
   };
   
-  const handleTestApiKey = async () => {
+  const handleTestConnection = async () => {
     setTestStatus('testing');
-    const isValid = await testApiKey(apiKey);
+    const isValid = await testApiKey();
     setTestStatus(isValid ? 'success' : 'error');
   };
   
@@ -49,10 +57,15 @@ const Dashboard: React.FC = () => {
       case 'error':
         return <span className="text-red-400">Connection failed. Check key.</span>;
       default:
-        return null;
+        return <span className="text-slate-400">Click to test your connection.</span>;
     }
   };
 
+  const handleSettingChange = <K extends keyof AppSettings>(field: K, value: AppSettings[K]) => {
+    if (settings) {
+        setSettings({ ...settings, [field]: value });
+    }
+  };
 
   return (
     <div>
@@ -61,55 +74,89 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <h2 className="text-xl font-semibold text-white mb-4">API Configuration</h2>
-          <p className="text-slate-400 mb-4">
-            Your Gemini API Key is required to generate content. It's stored securely in your browser's local storage and never sent anywhere except to Google's API.
-          </p>
-          <div className="space-y-4">
-            <Input
-              label="Gemini API Key"
-              id="api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                setTestStatus('idle');
-              }}
-              placeholder="Enter your API key"
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Button onClick={handleTestApiKey} disabled={!apiKey || testStatus === 'testing'}>
-                  {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
-                </Button>
-                <div className="h-6">{getStatusIndicator()}</div>
-              </div>
-              <div className="flex items-center space-x-3">
-                 {keySaved && <span className="text-green-400 text-sm">Saved!</span>}
-                <Button onClick={handleSaveApiKey} disabled={!apiKey}>
-                  Save Key
-                </Button>
-              </div>
+          {apiKeyStatus === 'loading' && <p className="text-slate-400">Checking API key status...</p>}
+          {apiKeyStatus === 'not_set' && (
+             <div className="bg-red-900/50 border border-red-500/50 p-4 rounded-lg">
+                <p className="font-bold text-red-300">API Key Not Found</p>
+                <p className="text-red-400 mt-1">
+                    The Gemini API key is not configured on the server. Please add your key to the `.env` file and restart the container.
+                </p>
             </div>
+          )}
+           {apiKeyStatus === 'set' && (
+             <div className="bg-green-900/50 border border-green-500/50 p-4 rounded-lg">
+                <p className="font-bold text-green-300">API Key Configured</p>
+                <p className="text-green-400 mt-1">
+                    An API key was found on the server. You can test the connection below.
+                </p>
+            </div>
+          )}
+          <div className="mt-4 flex items-center space-x-4">
+            <Button onClick={handleTestConnection} disabled={apiKeyStatus !== 'set' || testStatus === 'testing'}>
+              {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+            </Button>
+            <div className="h-6">{getStatusIndicator()}</div>
           </div>
         </Card>
 
         <Card>
           <h2 className="text-xl font-semibold text-white mb-4">Global AI Settings</h2>
-          <p className="text-slate-400 mb-4">
-            Provide general information or instructions for the AI to use in all blog posts. For example, specify a target audience, writing tone, or standard disclaimers.
-          </p>
-          <Textarea
-            label="General Instructions for AI"
-            id="ai-settings"
-            rows={5}
-            value={settings}
-            onChange={(e) => setSettings(e.target.value)}
-            placeholder="e.g., 'Write in a friendly, conversational tone for tech beginners. Always include a pros and cons section.'"
-          />
-          <div className="mt-4 flex items-center justify-end space-x-3">
-            {settingsSaved && <span className="text-green-400 text-sm">Saved!</span>}
-            <Button onClick={handleSaveSettings}>Save Settings</Button>
-          </div>
+           {!settings ? <p>Loading settings...</p> : (
+            <>
+            <p className="text-slate-400 mb-4">
+              These instructions and settings are used by the AI in all generated posts.
+            </p>
+            <div className="space-y-4">
+                <Textarea
+                    label="General Instructions for AI"
+                    id="ai-settings"
+                    rows={4}
+                    value={settings.generalInstructions}
+                    onChange={(e) => handleSettingChange('generalInstructions', e.target.value)}
+                    placeholder="e.g., 'Write in a friendly, conversational tone for tech beginners.'"
+                />
+                <div className="grid grid-cols-2 gap-4">
+                     <Input
+                        label="CTA Button Text"
+                        id="cta-text"
+                        value={settings.ctaText}
+                        onChange={(e) => handleSettingChange('ctaText', e.target.value)}
+                    />
+                    <div>
+                        <label htmlFor="tone-select" className="block text-sm font-medium text-slate-300 mb-1">Writing Tone</label>
+                        <select
+                            id="tone-select"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md py-2 px-3 text-white focus:ring-indigo-500"
+                            value={settings.tone}
+                            onChange={(e) => handleSettingChange('tone', e.target.value as AppSettings['tone'])}
+                        >
+                            <option value="">Default</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="professional">Professional</option>
+                            <option value="humorous">Humorous</option>
+                            <option value="technical">Technical</option>
+                            <option value="casual">Casual</option>
+                            <option value="witty">Witty</option>
+                            <option value="authoritative">Authoritative</option>
+                        </select>
+                    </div>
+                </div>
+                 <Textarea
+                    label="Affiliate Footer Text"
+                    id="footer-text"
+                    rows={2}
+                    value={settings.footerText}
+                    onChange={(e) => handleSettingChange('footerText', e.target.value)}
+                />
+            </div>
+            <div className="mt-4 flex items-center justify-end space-x-3">
+              {saveSuccess && <span className="text-green-400 text-sm">Saved!</span>}
+              <Button onClick={handleSaveSettings} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </div>
+            </>
+           )}
         </Card>
       </div>
     </div>

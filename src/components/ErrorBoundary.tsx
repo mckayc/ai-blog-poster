@@ -1,6 +1,7 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import Card from './common/Card';
-import Button from './common/Button';
+import Card from './common/Card.tsx';
+import Button from './common/Button.tsx';
 
 interface Props {
   children: ReactNode;

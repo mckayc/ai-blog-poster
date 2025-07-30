@@ -1,5 +1,5 @@
 
-import { Product, Template } from '../types';
+import { Product } from '../types.ts';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
