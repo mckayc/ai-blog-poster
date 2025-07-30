@@ -48,6 +48,7 @@ const Sidebar: React.FC = () => {
       <div className="text-xs text-slate-500 mt-4">
         <p>&copy; 2024 Product Compare</p>
         <p className="mt-1">Data is stored on the server.</p>
+        <p className="mt-2 font-mono">v0.0.3</p>
       </div>
     </aside>
   );

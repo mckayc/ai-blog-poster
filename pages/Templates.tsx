@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Template } from '../types';
-import * as db from '../services/dbService';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
+import { Template } from '../types.js';
+import * as db from '../services/dbService.js';
+import Card from '../components/common/Card.js';
+import Button from '../components/common/Button.js';
+import Input from '../components/common/Input.js';
+import Textarea from '../components/common/Textarea.js';
 
 const TemplateModal: React.FC<{
   template: Partial<Template> | null;
@@ -67,47 +67,35 @@ const Templates: React.FC = () => {
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
 
   const loadTemplates = useCallback(() => {
-    db.getTemplates()
-        .then(setTemplates)
-        .catch(e => console.error("Failed to load templates", e));
+    setTemplates(db.getTemplates());
   }, []);
 
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
 
-  const handleSave = async (templateData: Omit<Template, 'id'> & { id?: string }) => {
-    try {
-        if (templateData.id) {
-            await db.updateTemplate(templateData as Template);
-        } else {
-            await db.saveTemplate({ name: templateData.name, prompt: templateData.prompt } as Omit<Template, 'id'>);
-        }
-        setEditingTemplate(null);
-        loadTemplates();
-    } catch(e) {
-        console.error(e);
-        alert('Failed to save template.');
+  const handleSave = (templateData: Omit<Template, 'id'> & { id?: string }) => {
+    if (templateData.id) {
+      db.updateTemplate(templateData as Template);
+    } else {
+      db.saveTemplate({ ...templateData, id: crypto.randomUUID() });
     }
+    setEditingTemplate(null);
+    loadTemplates();
   };
   
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if(deletingTemplate) {
-        try {
-            await db.deleteTemplate(deletingTemplate.id);
-            setDeletingTemplate(null);
-            loadTemplates();
-        } catch(e) {
-            console.error(e);
-            alert('Failed to delete template.');
-        }
+        db.deleteTemplate(deletingTemplate.id);
+        setDeletingTemplate(null);
+        loadTemplates();
     }
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-white">Manage Prompt Templates</h1>
+        <h1 className="text-3xl font-bold text-white">Manage Templates</h1>
         <Button onClick={() => setEditingTemplate({})}>Create New Template</Button>
       </div>
 
