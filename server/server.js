@@ -1,3 +1,4 @@
+
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -26,6 +27,10 @@ app.use('/api', apiRoutes);
 
 // Serve static files from the React app
 const __dirname = path.resolve();
+
+// Serve TinyMCE static files
+app.use('/tinymce', express.static(path.join(__dirname, 'node_modules', 'tinymce')));
+
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // The "catchall" handler: for any request that doesn't

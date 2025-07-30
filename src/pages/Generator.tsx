@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, Template } from '../types';
-import * as db from '../services/dbService';
+import { Product, Template } from '/src/types';
+import * as db from '/src/services/dbService';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';

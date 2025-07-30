@@ -10,6 +10,30 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingOverlay from '../components/common/LoadingOverlay';
 
+// Required imports for self-hosted TinyMCE
+import 'tinymce/tinymce';
+import 'tinymce/themes/silver/theme';
+import 'tinymce/icons/default/icons';
+import 'tinymce/plugins/advlist';
+import 'tinymce/plugins/autolink';
+import 'tinymce/plugins/lists';
+import 'tinymce/plugins/link';
+import 'tinymce/plugins/image';
+import 'tinymce/plugins/charmap';
+import 'tinymce/plugins/preview';
+import 'tinymce/plugins/anchor';
+import 'tinymce/plugins/searchreplace';
+import 'tinymce/plugins/visualblocks';
+import 'tinymce/plugins/code';
+import 'tinymce/plugins/fullscreen';
+import 'tinymce/plugins/insertdatetime';
+import 'tinymce/plugins/media';
+import 'tinymce/plugins/table';
+import 'tinymce/plugins/help';
+import 'tinymce/plugins/wordcount';
+import 'tinymce/plugins/autoresize';
+import 'tinymce/plugins/imagetools';
+
 
 const EditPost: React.FC = () => {
     const { postId } = useParams<{ postId?: string }>();
@@ -230,7 +254,6 @@ const EditPost: React.FC = () => {
 
                 <div>
                     <Editor
-                        apiKey='no-api-key' // Using the free tier for this demo
                         onInit={(evt, editor) => editorRef.current = editor}
                         value={post.content || ''}
                         onEditorChange={handleContentChange}
@@ -248,8 +271,8 @@ const EditPost: React.FC = () => {
                             'alignright alignjustify | bullist numlist outdent indent | ' +
                             'link image media | table | code | removeformat | help',
                           content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:16px }',
-                          skin: 'oxide-dark',
-                          content_css: 'dark',
+                          skin_url: '/tinymce/skins/ui/oxide-dark',
+                          content_css: '/tinymce/skins/content/dark/content.css',
                           image_advtab: true,
                           table_toolbar: "tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol",
                           autoresize_bottom_margin: 50,
