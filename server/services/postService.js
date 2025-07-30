@@ -2,10 +2,35 @@ import { getDb } from '../database.js';
 
 const parsePost = (post) => {
     if (!post) return null;
+    
+    let products = [];
+    try {
+        if (post.products) {
+            const parsed = JSON.parse(post.products);
+            if (Array.isArray(parsed)) {
+                products = parsed;
+            }
+        }
+    } catch (e) {
+        console.error(`[DB PARSE ERROR] Post ${post.id}: Failed to parse products. Value: ${post.products}`, e.message);
+    }
+
+    let tags = [];
+    try {
+        if (post.tags) {
+            const parsed = JSON.parse(post.tags);
+            if (Array.isArray(parsed)) {
+                tags = parsed;
+            }
+        }
+    } catch (e) {
+        console.error(`[DB PARSE ERROR] Post ${post.id}: Failed to parse tags. Value: ${post.tags}`, e.message);
+    }
+
     return {
         ...post,
-        products: post.products ? JSON.parse(post.products) : [],
-        tags: post.tags ? JSON.parse(post.tags) : [],
+        products: products,
+        tags: tags,
     };
 }
 
