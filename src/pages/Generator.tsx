@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, Template } from '../types';
-import * as db from '../services/dbService';
-import Card from '../components/common/Card';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
-import Button from '../components/common/Button';
+import { Product, Template } from '/src/types';
+import * as db from '/src/services/dbService';
+import Card from '/src/components/common/Card';
+import Input from '/src/components/common/Input';
+import Textarea from '/src/components/common/Textarea';
+import Button from '/src/components/common/Button';
 
 const commonCategories = ["Electronics", "Home & Kitchen", "Books", "Clothing", "Health & Beauty", "Sports & Outdoors", "Toys & Games"];
 
