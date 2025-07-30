@@ -6,6 +6,7 @@ import Generator from './pages/Generator';
 import ManagePosts from './pages/ManagePosts';
 import Templates from './pages/Templates';
 import EditPost from './pages/EditPost';
+import ManageProducts from './pages/ManageProducts';
 
 const App: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ const App: React.FC = () => {
             <Route path="/manage" element={<ManagePosts />} />
             <Route path="/edit/:postId" element={<EditPost />} />
             <Route path="/templates" element={<Templates />} />
+            <Route path="/products" element={<ManageProducts />} />
           </Routes>
         </div>
       </main>

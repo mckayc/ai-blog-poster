@@ -93,16 +93,6 @@ export const regeneratePostStream = async (req, res) => {
     }
 };
 
-export const fetchProduct = async (req, res) => {
-    try {
-        const { productUrl } = req.body;
-        const result = await geminiService.fetchProductData(productUrl);
-        res.json(result);
-    } catch(error) {
-        handle_error(res, error);
-    }
-};
-
 export const generateTitleIdea = async (req, res) => {
     try {
         const { products } = req.body;

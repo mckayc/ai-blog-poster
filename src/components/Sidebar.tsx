@@ -32,6 +32,11 @@ const Sidebar: React.FC = () => {
               Manage Posts
             </NavLink>
           </li>
+           <li className="mt-2">
+            <NavLink to="/products" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
+              Product Library
+            </NavLink>
+          </li>
           <li className="mt-2">
             <NavLink to="/templates" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
               Prompt Templates

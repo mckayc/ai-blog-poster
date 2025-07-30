@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as postController from './controllers/postController.js';
+import * as productController from './controllers/productController.js';
 import { getDb } from './database.js';
 
 const router = Router();
@@ -10,10 +11,19 @@ router.get('/posts/:id', postController.getPostById);
 router.post('/posts', postController.saveOrUpdatePost);
 router.delete('/posts/:id', postController.deletePostById);
 
+// --- Product Routes ---
+router.get('/products', productController.getAllProducts);
+router.get('/products/categories', productController.getUniqueCategories);
+router.post('/products', productController.createProduct);
+router.get('/products/:id', productController.getProductById);
+router.put('/products/:id', productController.updateProduct);
+router.delete('/products/:id', productController.deleteProduct);
+router.post('/products/fetch-and-save', productController.fetchAndSaveProduct);
+
+
 // --- Gemini API Proxy Routes ---
 router.post('/gemini/generate-post-stream', postController.generatePostStream);
 router.post('/gemini/regenerate-post-stream', postController.regeneratePostStream);
-router.post('/gemini/fetch-product', postController.fetchProduct);
 router.post('/gemini/generate-title', postController.generateTitleIdea);
 router.post('/test-connection', postController.testConnection);
 

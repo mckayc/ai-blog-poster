@@ -1,4 +1,4 @@
-import { BlogPost, Template, AppSettings } from '../types';
+import { BlogPost, Template, AppSettings, Product } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
@@ -79,4 +79,38 @@ export const updateTemplate = (updatedTemplate: Template): Promise<any> => {
 
 export const deleteTemplate = (templateId: string): Promise<any> => {
     return fetch(`/api/templates/${templateId}`, { method: 'DELETE' }).then(handleResponse);
+};
+
+// --- Product Management ---
+export const getProducts = async (filters: {search?: string, category?: string}): Promise<Product[]> => {
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (filters.category) params.set('category', filters.category);
+    return fetch(`/api/products?${params.toString()}`).then(handleResponse);
+};
+
+export const getUniqueCategories = async (): Promise<string[]> => {
+    return fetch('/api/products/categories').then(handleResponse);
+};
+
+export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
+    const url = product.id ? `/api/products/${product.id}` : '/api/products';
+    const method = product.id ? 'PUT' : 'POST';
+    return fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+    }).then(handleResponse);
+};
+
+export const deleteProduct = async (productId: string): Promise<any> => {
+    return fetch(`/api/products/${productId}`, { method: 'DELETE' }).then(handleResponse);
+};
+
+export const fetchAndSaveProduct = async (productUrl: string): Promise<Product> => {
+    return fetch('/api/products/fetch-and-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productUrl })
+    }).then(handleResponse);
 };
