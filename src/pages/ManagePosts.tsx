@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost } from '../types';
@@ -56,7 +57,7 @@ const ManagePosts: React.FC = () => {
                 <p className="text-sm text-slate-400">
                   Generated on {new Date(post.createdAt).toLocaleDateString()}
                 </p>
-                {post.tags && post.tags.length > 0 && (
+                {Array.isArray(post.tags) && post.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                         {post.tags.map(tag => (
                             <span key={tag} className="bg-slate-700 text-indigo-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
