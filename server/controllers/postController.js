@@ -1,5 +1,6 @@
 import * as postService from '../services/postService.js';
 import * as geminiService from '../services/geminiService.js';
+import * as templateService from '../services/templateService.js';
 
 const handle_error = (res, error) => {
     console.error("--- CONTROLLER ERROR ---");
@@ -53,9 +54,17 @@ export const deletePostById = async (req, res) => {
 
 export const generatePostStream = async (req, res) => {
     try {
-        const { products, instructions, templatePrompt } = req.body;
+        const { products, instructions, templateId } = req.body;
         
-        res.setHeader('Content-Type', 'text/plain');
+        let templatePrompt = null;
+        if (templateId && templateId !== 'default') {
+            const template = await templateService.getTemplateById(templateId);
+            if (template) {
+                templatePrompt = template.prompt;
+            }
+        }
+
+        res.setHeader('Content-Type', 'application/json');
         res.setHeader('Transfer-Encoding', 'chunked');
 
         const stream = await geminiService.generateBlogPostStream(products, instructions, templatePrompt);
@@ -67,27 +76,6 @@ export const generatePostStream = async (req, res) => {
 
     } catch (error) {
         console.error("--- STREAMING CONTROLLER ERROR ---");
-        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        res.end(`STREAM_ERROR: ${error.message}`);
-    }
-};
-
-export const regeneratePostStream = async (req, res) => {
-    try {
-        const { existingPost, newInstructions } = req.body;
-        
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Transfer-Encoding', 'chunked');
-
-        const stream = await geminiService.regenerateBlogPostStream(existingPost, newInstructions);
-
-        for await (const chunk of stream) {
-            res.write(chunk.text);
-        }
-        res.end();
-
-    } catch (error) {
-        console.error("--- REGENERATION STREAMING CONTROLLER ERROR ---");
         console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
         res.end(`STREAM_ERROR: ${error.message}`);
     }

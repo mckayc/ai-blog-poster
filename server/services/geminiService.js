@@ -40,7 +40,7 @@ export const testApiKey = async () => {
 export const fetchProductData = async (productUrl) => {
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `You are an expert data extractor. Analyze the content of the provided URL and extract the product's title, price, a detailed description (summarize the key features and specifications if the description is long), and the primary high-resolution product image URL. URL: ${productUrl}. Respond ONLY with a single, minified JSON object with the keys: "title", "price", "description", "imageUrl". Do not include markdown 'json' block or any other text.`;
+    const prompt = `You are an expert data extractor. Analyze the content of the provided URL and extract the product's title, brand, price, a detailed description (summarize the key features and specifications if the description is long), and the primary high-resolution product image URL. URL: ${productUrl}. Respond ONLY with a single, minified JSON object with the keys: "title", "brand", "price", "description", "imageUrl". Do not include markdown 'json' block or any other text.`;
 
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -48,14 +48,21 @@ export const fetchProductData = async (productUrl) => {
         config: {
             tools: [{ googleSearch: {} }],
             temperature: 0.0,
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    brand: { type: Type.STRING },
+                    price: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    imageUrl: { type: Type.STRING },
+                },
+                required: ["title", "brand", "price", "description", "imageUrl"]
+            }
         }
     });
-    const text = response.text.trim();
-    const jsonMatch = text.match(/\{.*\}/s);
-    if (!jsonMatch) {
-        throw new Error("Invalid JSON response from AI. Could not find a JSON object.");
-    }
-    return JSON.parse(jsonMatch[0]);
+    return JSON.parse(response.text.trim());
 };
 
 export const generateTitleIdea = async (products) => {
@@ -103,12 +110,8 @@ export const generateBlogPostStream = async (products, instructions, templatePro
         ? `The overall tone of the post must be: ${settings.tone}.`
         : 'The overall tone of the post must be neutral and informative.';
 
-    // This is the default prompt if no user template is selected.
-    // It combines the master rules with a default task.
     const defaultPromptTemplate = `
       You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons that can be easily pasted into platforms like WordPress or Blogger.
-
-      You will use the user-provided template as a structural guide. However, if the template seems unrelated to comparing products, you MUST IGNORE it and write a standard, high-quality comparison post. The product comparison is always the most important goal.
 
       ---
       **CRITICAL OUTPUT RULES (MUST be followed):**
@@ -129,12 +132,7 @@ export const generateBlogPostStream = async (products, instructions, templatePro
 
       ---
       **Core Task:**
-      Write a comprehensive and engaging blog post comparing the products provided.
-      The structure should be:
-      1. An introduction.
-      2. A section for each product, including its image and a detailed description.
-      3. A comparison table.
-      4. A final recommendation.
+      {{USER_PROVIDED_TEMPLATE_TASK}}
       ---
 
       **Global Settings (General Writing Style):**
@@ -148,18 +146,21 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       {{PRODUCT_DETAILS}}
     `;
     
-    // If a user template is provided, use it. Otherwise, use the default.
-    const basePrompt = templatePrompt || defaultPromptTemplate;
+    // If a user template is provided, use it. Otherwise, use the default task.
+    const task = templatePrompt || `Write a comprehensive and engaging blog post comparing the products provided.
+      The structure should be:
+      1. An introduction.
+      2. A section for each product, including its image and a detailed description.
+      3. A comparison table.
+      4. A final recommendation.`;
     
-    let finalPrompt = basePrompt
+    let finalPrompt = defaultPromptTemplate
+        .replace('{{USER_PROVIDED_TEMPLATE_TASK}}', task)
         .replace('{{PRODUCT_DETAILS}}', productDetails)
         .replace('{{GENERAL_SETTINGS}}', settings.generalInstructions || 'No general instructions provided.')
         .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.')
         .replace(/\{\{CTA_TEXT\}\}/g, settings.ctaText || 'Check latest price')
         .replace('{{FOOTER_TEXT}}', settings.footerText || '');
-    
-    console.log('--- FINAL PROMPT SENT TO GEMINI (STREAM) ---');
-    // console.log(finalPrompt); // Keep this commented to avoid overly verbose logs
     
     const responseSchema = {
         type: Type.OBJECT,
@@ -184,60 +185,5 @@ export const generateBlogPostStream = async (products, instructions, templatePro
         }
     });
     
-    return response;
-};
-
-export const regenerateBlogPostStream = async (existingPost, newInstructions) => {
-    const apiKey = getApiKey();
-    const settings = await getSettings();
-    const ai = new GoogleGenAI({ apiKey });
-
-    const prompt = `
-    You are an expert content editor. Your task is to rewrite the provided blog post based on the new instructions, providing a new title and new content.
-
-    **New Instructions to apply:**
-    ${newInstructions}
-
-    ---
-    **CRITICAL OUTPUT RULES (MUST be followed):**
-    1.  **JSON Output:** Your entire response must be a single, valid JSON object.
-    2.  **JSON Schema:** The JSON object must have two keys: "title" (string), and "content" (string).
-    3.  **Rewrite Title & Content:** Rewrite the entire article content AND generate a new, fitting title based on the new instructions. The new title should reflect the changes requested.
-    4.  **Preserve Core Info:** Preserve the core product information and affiliate links from the original article. The original products are: ${existingPost.products.map(p => p.title).join(', ')}.
-    5.  **HTML Content & Styling:** The rewritten "content" value must be a string of clean, well-structured HTML. Adhere to the same inline styling rules as the original creation: use inline CSS for tables, blockquotes, etc., to ensure portability.
-    6.  **Styled Table:** The rewritten content must contain a comparison table styled with inline CSS as per the original generation rules (100% width, borders, padding, header background).
-    7.  **Footer:** After all other content, the VERY LAST element must be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">${settings.footerText}</p>\`
-
-    ---
-    **ORIGINAL POST TO REWRITE:**
-    \`\`\`json
-    ${JSON.stringify({ title: existingPost.title, content: existingPost.content }, null, 2)}
-    \`\`\`
-    ---
-
-    Now, provide the complete, rewritten JSON object based on the new instructions.
-    `;
-
-    console.log('--- REGENERATION PROMPT SENT TO GEMINI (STREAM) ---');
-    // console.log(prompt); // Keep this commented to avoid overly verbose logs
-
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING, description: "The new, rewritten title for the blog post." },
-          content: { type: Type.STRING, description: "The new, rewritten HTML content for the blog post." },
-        },
-        required: ["title", "content"]
-    };
-
-    const response = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: responseSchema
-        }
-    });
-
     return response;
 };

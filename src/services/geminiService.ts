@@ -1,4 +1,4 @@
-import { Product } from '../types';
+import { Product, Template } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
@@ -19,14 +19,19 @@ export const testApiKey = async (): Promise<boolean> => {
   }
 };
 
-export const fetchProductData = async (
-  productUrl: string
-): Promise<Partial<Product>> => {
-  return fetch('/api/gemini/fetch-product', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productUrl })
-  }).then(handleResponse);
+export const generatePostStream = async (products: Product[], instructions: string, templateId: string | null): Promise<Response> => {
+    const response = await fetch('/api/gemini/generate-post-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products, instructions, templateId })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'An unknown API error occurred during streaming setup.' }));
+        throw new Error(error.message);
+    }
+
+    return response;
 };
 
 export const generateTitleIdea = async (products: Product[]): Promise<string[]> => {
