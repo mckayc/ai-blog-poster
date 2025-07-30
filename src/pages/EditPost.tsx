@@ -11,7 +11,7 @@ import Textarea from '../components/common/Textarea';
 
 const quillModules = {
   toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
+    [{ 'header': [1, 2, false] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
     ['link', 'image', 'blockquote', 'code-block'],
@@ -203,16 +203,16 @@ const EditPost: React.FC = () => {
         setIsStreaming(true);
         setStreamError(null);
         
-        const originalContent = content; // Keep a copy to restore on error
-        setContent(''); // Clear for streaming
+        const originalContent = content;
+        const originalTitle = title;
+        setContent(''); // Clear for streaming effect
 
         try {
             const response = await fetch('/api/gemini/regenerate-post-stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    existingContent: content,
-                    existingTitle: title,
+                    existingPost: post,
                     newInstructions: regenerationPrompt,
                 })
             });
@@ -220,6 +220,7 @@ const EditPost: React.FC = () => {
             if (!response.body) throw new Error("Response body is missing.");
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let accumulatedJson = '';
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -228,12 +229,24 @@ const EditPost: React.FC = () => {
                 if (chunk.startsWith('STREAM_ERROR:')) {
                     throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
                 }
-                setContent(prev => prev + chunk);
+                accumulatedJson += chunk;
+                 try {
+                    const parsed = JSON.parse(accumulatedJson);
+                    if(parsed.title) setTitle(parsed.title);
+                    if(parsed.content) setContent(parsed.content);
+                } catch(e) {
+                    // Incomplete JSON, continue accumulating
+                }
             }
+
+            const finalData = JSON.parse(accumulatedJson);
+            setTitle(finalData.title);
+            setContent(finalData.content);
 
         } catch (error: any) {
             setStreamError(error.message || "An unknown regeneration error occurred.");
             setContent(originalContent);
+            setTitle(originalTitle);
         } finally {
             setIsStreaming(false);
             setRegenerationPrompt('');
@@ -279,9 +292,13 @@ const EditPost: React.FC = () => {
             .ql-snow .ql-editor a:hover { text-decoration: underline; }
             .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; font-style: italic; }
             .ql-snow .ql-editor pre.ql-syntax { background-color: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 0.5rem; }
-            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; }
-            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #334155; padding: 8px; }
+            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #334155; padding: 0.75rem; text-align: left; }
             .ql-snow .ql-editor th { background-color: #1e293b; font-weight: bold; }
+            .ql-editor img { max-width: 100%; height: auto; margin: 0.5rem 0; }
+            .ql-editor p.ql-align-center { text-align: center; }
+            .ql-editor p.ql-align-right { text-align: right; }
+            .ql-editor p.ql-align-justify { text-align: justify; }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">

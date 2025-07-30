@@ -97,7 +97,6 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       - Affiliate Link: ${p.affiliateLink}
       - Image URL: ${p.imageUrl}
       - Details: ${p.description}
-      - Price: ${p.price}
     `).join('\n');
     
     const defaultUserPrompt = `
@@ -125,15 +124,17 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       **CRITICAL OUTPUT RULES (MUST be followed):**
       1.  **JSON Output:** Your entire response must be a single, valid JSON object.
       2.  **JSON Schema:** The JSON object must have four keys: "title" (string), "heroImageUrl" (string), "content" (string), and "tags" (array of strings).
-      3.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
-      4.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
-      5.  **HTML Content:** The "content" value must be a string of well-structured HTML.
-      6.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
-      7.  **Comparison Table:** The HTML MUST include a comparison table (\`<table>\`) that compares key features of the products side-by-side. The table should have columns like "Feature", "${products[0]?.title || 'Product 1'}", "${products[1]?.title || 'Product 2'}".
-      8.  **Affiliate Links:** Whenever you mention a product in a context where a user might buy, integrate its affiliate link naturally. The link text MUST be exactly: "{{CTA_TEXT}}".
-      9.  **Tone:** ${toneInstruction}
-      10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p class="footer-disclaimer">{{FOOTER_TEXT}}</p>\`.
-      11. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
+      3.  **Content Quality:** You MUST rewrite and summarize the provided product 'Details', creating original and engaging descriptions. Do NOT simply copy-paste text. The content must be high-quality and readable.
+      4.  **No Prices:** You MUST NOT include any specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
+      5.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
+      6.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
+      7.  **HTML Content:** The "content" value must be a string of well-structured HTML.
+      8.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
+      9.  **Comparison Table:** The HTML MUST include a comparison table (\`<table>\`) that compares key features of the products side-by-side. The table should have columns like "Feature", "${products[0]?.title || 'Product 1'}", "${products[1]?.title || 'Product 2'}".
+      10. **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title. For variety, you may occasionally use the text: "{{CTA_TEXT}}".
+      11. **Tone:** ${toneInstruction}
+      12. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p class="footer-disclaimer">{{FOOTER_TEXT}}</p>\`.
+      13. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
 
       ---
       **Global Settings (General Writing Style):**
@@ -184,41 +185,55 @@ export const generateBlogPostStream = async (products, instructions, templatePro
     return response;
 };
 
-export const regenerateBlogPostStream = async (existingContent, existingTitle, newInstructions) => {
+export const regenerateBlogPostStream = async (existingPost, newInstructions) => {
     const apiKey = getApiKey();
     const settings = await getSettings();
     const ai = new GoogleGenAI({ apiKey });
 
-    const prompt = `You are an expert content editor. Your task is to rewrite the provided HTML blog post based on the new instructions.
+    const prompt = `
+    You are an expert content editor. Your task is to rewrite the provided blog post based on the new instructions, providing a new title and new content.
 
-    **New Instructions:**
+    **New Instructions to apply:**
     ${newInstructions}
 
-    **RULES:**
-    1.  Rewrite the entire article, do not just add to it or comment on it.
-    2.  Your output MUST be the full, rewritten article in valid HTML.
-    3.  The HTML should be well-structured.
-    4.  Preserve the core product information and affiliate links from the original article.
-    5.  Adhere to the new instructions to modify the tone, structure, or content.
-    6.  After all other content, the VERY LAST element must be a footer: \`<p class="footer-disclaimer">${settings.footerText}</p>\`
+    ---
+    **CRITICAL OUTPUT RULES (MUST be followed):**
+    1.  **JSON Output:** Your entire response must be a single, valid JSON object.
+    2.  **JSON Schema:** The JSON object must have two keys: "title" (string), and "content" (string).
+    3.  **Rewrite Title & Content:** Rewrite the entire article content AND generate a new, fitting title based on the new instructions.
+    4.  **Preserve Core Info:** Preserve the core product information and affiliate links from the original article.
+    5.  **HTML Content:** The "content" value must be a string of well-structured HTML.
+    6.  **Footer:** After all other content, the VERY LAST element must be a footer: \`<p class="footer-disclaimer">${settings.footerText}</p>\`
 
     ---
-    **ORIGINAL HTML ARTICLE TO REWRITE:**
-    \`\`\`html
-    <h1>${existingTitle}</h1>
-    ${existingContent}
+    **ORIGINAL POST TO REWRITE:**
+    \`\`\`json
+    ${JSON.stringify({ title: existingPost.title, content: existingPost.content }, null, 2)}
     \`\`\`
     ---
 
-    Now, provide the complete, rewritten HTML based on the new instructions. Your response should only be the raw HTML content, starting with an h2 tag (as the h1 is separate).
+    Now, provide the complete, rewritten JSON object based on the new instructions.
     `;
 
     console.log('--- REGENERATION PROMPT SENT TO GEMINI (STREAM) ---');
     console.log(prompt);
 
+    const responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          content: { type: Type.STRING },
+        },
+        required: ["title", "content"]
+    };
+
     const response = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
-        contents: prompt
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema
+        }
     });
 
     return response;

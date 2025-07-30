@@ -74,12 +74,12 @@ export const generatePostStream = async (req, res) => {
 
 export const regeneratePostStream = async (req, res) => {
     try {
-        const { existingContent, newInstructions } = req.body;
+        const { existingPost, newInstructions } = req.body;
         
         res.setHeader('Content-Type', 'text/plain');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        const stream = await geminiService.regenerateBlogPostStream(existingContent, newInstructions);
+        const stream = await geminiService.regenerateBlogPostStream(existingPost, newInstructions);
 
         for await (const chunk of stream) {
             res.write(chunk.text);
