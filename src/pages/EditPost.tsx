@@ -20,6 +20,8 @@ const quillModules = {
   ],
 };
 
+type EditorMode = 'wysiwyg' | 'html';
+
 const EditPost: React.FC = () => {
     const { postId } = useParams<{ postId: string }>();
     const navigate = useNavigate();
@@ -32,6 +34,7 @@ const EditPost: React.FC = () => {
     const [tags, setTags] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [regenerationPrompt, setRegenerationPrompt] = useState('');
+    const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg');
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -298,17 +301,10 @@ const EditPost: React.FC = () => {
             .ql-snow .ql-editor a:hover { text-decoration: underline; }
             .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; font-style: italic; }
             .ql-snow .ql-editor pre.ql-syntax { background-color: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 0.5rem; }
-            /* Table Styles */
-            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
-            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #475569; padding: 0.75rem; text-align: left; }
-            .ql-snow .ql-editor th { background-color: #1e293b; font-weight: bold; color: #f1f5f9; }
-            .ql-snow .ql-editor tr:nth-child(even) { background-color: #1a2436; }
-            /* Image Alignment & Sizing Styles */
             .ql-editor img { max-width: 100%; height: auto; margin-top: 0.5rem; margin-bottom: 0.5rem; display: block; }
             .ql-editor .ql-align-center { text-align: center; }
             .ql-editor .ql-align-right { text-align: right; }
             .ql-editor .ql-align-left { text-align: left; }
-            /* Center-aligned images need margin auto */
             .ql-editor p.ql-align-center img { margin-left: auto; margin-right: auto; }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -349,23 +345,44 @@ const EditPost: React.FC = () => {
                         </div>
                     </div>
                 </Card>
-                <Card className="!p-0 !bg-transparent !shadow-none">
-                    {isStreaming && (
-                         <div className="p-4 border-b border-slate-700 text-yellow-300 flex items-center bg-slate-800 rounded-t-xl">
-                            <svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            AI is writing... The post will be saved automatically when finished.
+                
+                <Card className="!p-0 !bg-slate-800 rounded-xl">
+                    <div className="flex justify-between items-center p-2 border-b border-slate-700">
+                         {isStreaming && (
+                             <div className="p-2 text-yellow-300 flex items-center">
+                                <svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                AI is writing...
+                            </div>
+                        )}
+                        <div className="ml-auto inline-flex rounded-md shadow-sm" role="group">
+                           <button type="button" onClick={() => setEditorMode('wysiwyg')} className={`px-4 py-2 text-sm font-medium rounded-l-lg ${editorMode === 'wysiwyg' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-slate-600'} border`}>
+                                Visual Editor
+                            </button>
+                            <button type="button" onClick={() => setEditorMode('html')} className={`px-4 py-2 text-sm font-medium rounded-r-lg ${editorMode === 'html' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-slate-600'} border`}>
+                                HTML Code
+                            </button>
                         </div>
+                    </div>
+
+                    {editorMode === 'wysiwyg' ? (
+                        <ReactQuill 
+                            theme="snow" 
+                            value={content} 
+                            onChange={setContent} 
+                            modules={quillModules}
+                            readOnly={isStreaming}
+                        />
+                    ) : (
+                        <Textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            className="w-full h-[540px] font-mono bg-slate-900 text-slate-300 border-none rounded-b-xl focus:ring-0"
+                            readOnly={isStreaming}
+                        />
                     )}
-                    <ReactQuill 
-                        theme="snow" 
-                        value={content} 
-                        onChange={setContent} 
-                        modules={quillModules}
-                        readOnly={isStreaming}
-                    />
                 </Card>
             </div>
 

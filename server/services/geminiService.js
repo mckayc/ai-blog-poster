@@ -113,28 +113,26 @@ export const generateBlogPostStream = async (products, instructions, templatePro
         : 'The overall tone of the post must be neutral and informative.';
 
     const masterPrompt = `
-      You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons. Your primary task is to write a comparison blog post using the product data provided.
+      You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons that can be easily pasted into platforms like WordPress or Blogger.
 
-      You should use the user-provided template as a structural guide. However, if the template seems unrelated to comparing products, you MUST IGNORE it and write a standard, high-quality comparison post. The product comparison is always the most important goal.
-
-      **User-Provided Template/Structure:**
-      {{USER_PROMPT_TEMPLATE}}
+      You will use the user-provided template as a structural guide. However, if the template seems unrelated to comparing products, you MUST IGNORE it and write a standard, high-quality comparison post. The product comparison is always the most important goal.
 
       ---
       **CRITICAL OUTPUT RULES (MUST be followed):**
       1.  **JSON Output:** Your entire response must be a single, valid JSON object.
       2.  **JSON Schema:** The JSON object must have four keys: "title" (string), "heroImageUrl" (string), "content" (string), and "tags" (array of strings).
-      3.  **Content Quality:** You MUST rewrite and summarize the provided product 'Raw Description/Details' and 'Title for context', creating original and engaging descriptions. Do NOT simply copy-paste text. Use the information to form your own high-quality, readable content. Poorly written Amazon descriptions must be improved.
-      4.  **No Prices:** You MUST NOT include any specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
-      5.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
-      6.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
-      7.  **HTML Content:** The "content" value must be a string of well-structured HTML.
-      8.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
-      9.  **Comparison Table:** The HTML MUST include a comparison table (\`<table>\`) that compares key features of the products side-by-side. The table should have columns like "Feature", "${products[0]?.title || 'Product 1'}", "${products[1]?.title || 'Product 2'}".
-      10. **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, you may occasionally use the text: "{{CTA_TEXT}}". Do not just say "click here".
-      11. **Tone:** ${toneInstruction}
-      12. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p class="footer-disclaimer">{{FOOTER_TEXT}}</p>\`.
-      13. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
+      3.  **Title Generation:** You MUST generate a new, compelling, SEO-friendly title for the blog post that reflects a comparison, such as "Product A vs. Product B: Which is Best for You?". Do NOT just use a single product's title.
+      4.  **Content Quality:** You MUST rewrite and summarize the provided product 'Raw Description/Details' and 'Title for context', creating original and engaging descriptions. Do NOT simply copy-paste text. Use the information to form your own high-quality, readable content. Poorly written Amazon descriptions must be improved.
+      5.  **No Prices:** You MUST NOT include any specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
+      6.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
+      7.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
+      8.  **HTML Content & Styling:** The "content" value must be a string of clean, well-structured HTML. Use inline CSS styles for formatting like borders, padding, and background colors to ensure the post looks good when pasted into external platforms. Do not use <style> tags or CSS classes. When using blockquotes, style them with a left border and padding using inline CSS (e.g., style="border-left: 4px solid #cccccc; padding-left: 1rem; margin-left: 1rem; font-style: italic;").
+      9.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
+      10. **Comparison Table:** The HTML MUST include a comparison table. The table MUST be styled with inline CSS. Use \`<table style="width: 100%; border-collapse: collapse;">\`. Table header cells (\`<th>\`) should be styled with \`style="border: 1px solid #cccccc; padding: 12px; text-align: left; background-color: #f2f2f2; color: #333333; font-weight: bold;"\`. Standard table cells (\`<td>\`) should be styled with \`style="border: 1px solid #cccccc; padding: 12px; text-align: left; vertical-align: top;"\`.
+      11. **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, you may occasionally use the text: "{{CTA_TEXT}}". Do not just say "click here".
+      12. **Tone:** ${toneInstruction}
+      13. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">{{FOOTER_TEXT}}</p>\`.
+      14. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
 
       ---
       **Global Settings (General Writing Style):**
@@ -202,8 +200,9 @@ export const regenerateBlogPostStream = async (existingPost, newInstructions) =>
     2.  **JSON Schema:** The JSON object must have two keys: "title" (string), and "content" (string).
     3.  **Rewrite Title & Content:** Rewrite the entire article content AND generate a new, fitting title based on the new instructions. The new title should reflect the changes requested.
     4.  **Preserve Core Info:** Preserve the core product information and affiliate links from the original article. The original products are: ${existingPost.products.map(p => p.title).join(', ')}.
-    5.  **HTML Content:** The "content" value must be a string of well-structured HTML. Maintain good formatting.
-    6.  **Footer:** After all other content, the VERY LAST element must be a footer: \`<p class="footer-disclaimer">${settings.footerText}</p>\`
+    5.  **HTML Content & Styling:** The rewritten "content" value must be a string of clean, well-structured HTML. Adhere to the same inline styling rules as the original creation: use inline CSS for tables, blockquotes, etc., to ensure portability.
+    6.  **Styled Table:** The rewritten content must contain a comparison table styled with inline CSS as per the original generation rules (100% width, borders, padding, header background).
+    7.  **Footer:** After all other content, the VERY LAST element must be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">${settings.footerText}</p>\`
 
     ---
     **ORIGINAL POST TO REWRITE:**
