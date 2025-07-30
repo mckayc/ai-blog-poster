@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import * as db from '/src/services/dbService';
-import { testApiKey } from '/src/services/geminiService';
+import * as db from '../services/dbService';
+import { testApiKey } from '../services/geminiService';
 import { AppSettings } from '../types';
 import Card from '../components/common/Card';
 import Textarea from '../components/common/Textarea';

@@ -32,7 +32,6 @@ import 'tinymce/plugins/table';
 import 'tinymce/plugins/help';
 import 'tinymce/plugins/wordcount';
 import 'tinymce/plugins/autoresize';
-import 'tinymce/plugins/imagetools';
 
 
 const EditPost: React.FC = () => {
@@ -264,7 +263,7 @@ const EditPost: React.FC = () => {
                           plugins: [
                             'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
                             'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                            'insertdatetime', 'media', 'table', 'help', 'wordcount', 'autoresize', 'imagetools'
+                            'insertdatetime', 'media', 'table', 'help', 'wordcount', 'autoresize'
                           ],
                           toolbar: 'undo redo | blocks | ' +
                             'bold italic forecolor | alignleft aligncenter ' +
