@@ -11,7 +11,7 @@ import Textarea from '../components/common/Textarea';
 
 const quillModules = {
   toolbar: [
-    [{ 'header': [1, 2, false] }],
+    [{ 'header': [1, 2] }], // H1, H2, and Paragraph (default)
     ['bold', 'italic', 'underline', 'strike'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
     ['link', 'image', 'blockquote', 'code-block'],
@@ -205,14 +205,14 @@ const EditPost: React.FC = () => {
         
         const originalContent = content;
         const originalTitle = title;
-        setContent(''); // Clear for streaming effect
+        setContent('<p>AI is rewriting the content based on your instructions...</p>'); 
 
         try {
             const response = await fetch('/api/gemini/regenerate-post-stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    existingPost: post,
+                    existingPost: { ...post, content: originalContent, title: originalTitle },
                     newInstructions: regenerationPrompt,
                 })
             });
@@ -224,7 +224,6 @@ const EditPost: React.FC = () => {
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
                 const chunk = decoder.decode(value, { stream: true });
                 if (chunk.startsWith('STREAM_ERROR:')) {
                     throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
@@ -237,11 +236,16 @@ const EditPost: React.FC = () => {
                 } catch(e) {
                     // Incomplete JSON, continue accumulating
                 }
+                if (done) break;
             }
 
             const finalData = JSON.parse(accumulatedJson);
             setTitle(finalData.title);
             setContent(finalData.content);
+            
+            const updatedPost = { ...post, title: finalData.title, content: finalData.content };
+            await db.updatePost(updatedPost);
+            setPost(updatedPost);
 
         } catch (error: any) {
             setStreamError(error.message || "An unknown regeneration error occurred.");
@@ -266,7 +270,7 @@ const EditPost: React.FC = () => {
         <style>{`
             .ql-editor {
                 min-height: 500px;
-                font-size: 16px;
+                font-size: 1rem;
                 line-height: 1.6;
                 background-color: #0f172a; /* slate-900 */
                 color: #cbd5e1; /* slate-300 */
@@ -287,18 +291,25 @@ const EditPost: React.FC = () => {
             .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: transparent !important; }
             .ql-snow .ql-picker.ql-expanded .ql-picker-options { background-color: #334155; border-color: #475569 !important; }
             .ql-snow .ql-picker-options .ql-picker-item:hover { background-color: #475569; }
-            .ql-snow .ql-editor h1, .ql-snow .ql-editor h2, .ql-snow .ql-editor h3 { border-bottom: 1px solid #334155; padding-bottom: 0.3em; margin-top: 1.5em; margin-bottom: 1em; }
+            .ql-snow .ql-editor h1, .ql-snow .ql-editor h2 { border-bottom: 1px solid #334155; padding-bottom: 0.3em; margin-top: 1.5em; margin-bottom: 1em; }
+            .ql-snow .ql-editor h1 { font-size: 2em; }
+            .ql-snow .ql-editor h2 { font-size: 1.5em; }
             .ql-snow .ql-editor a { color: #818cf8; text-decoration: none; }
             .ql-snow .ql-editor a:hover { text-decoration: underline; }
             .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; font-style: italic; }
             .ql-snow .ql-editor pre.ql-syntax { background-color: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 0.5rem; }
-            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #334155; padding: 0.75rem; text-align: left; }
-            .ql-snow .ql-editor th { background-color: #1e293b; font-weight: bold; }
-            .ql-editor img { max-width: 100%; height: auto; margin: 0.5rem 0; }
-            .ql-editor p.ql-align-center { text-align: center; }
-            .ql-editor p.ql-align-right { text-align: right; }
-            .ql-editor p.ql-align-justify { text-align: justify; }
+            /* Table Styles */
+            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
+            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #475569; padding: 0.75rem; text-align: left; }
+            .ql-snow .ql-editor th { background-color: #1e293b; font-weight: bold; color: #f1f5f9; }
+            .ql-snow .ql-editor tr:nth-child(even) { background-color: #1a2436; }
+            /* Image Alignment & Sizing Styles */
+            .ql-editor img { max-width: 100%; height: auto; margin-top: 0.5rem; margin-bottom: 0.5rem; display: block; }
+            .ql-editor .ql-align-center { text-align: center; }
+            .ql-editor .ql-align-right { text-align: right; }
+            .ql-editor .ql-align-left { text-align: left; }
+            /* Center-aligned images need margin auto */
+            .ql-editor p.ql-align-center img { margin-left: auto; margin-right: auto; }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -329,7 +340,7 @@ const EditPost: React.FC = () => {
                                     className="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition !text-xl !py-3 font-bold flex-grow"
                                     disabled={isStreaming || isGeneratingTitle}
                                 />
-                                <Button onClick={handleGenerateTitle} disabled={isStreaming || isGeneratingTitle} variant="secondary">
+                                <Button onClick={handleGenerateTitle} disabled={isStreaming || isGeneratingTitle} variant="secondary" aria-label="Generate new title idea">
                                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isGeneratingTitle ? 'animate-spin' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                                       <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                                     </svg>
