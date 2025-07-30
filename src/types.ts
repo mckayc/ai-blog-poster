@@ -13,8 +13,10 @@ export interface BlogPost {
   id:string;
   name: string;
   title: string;
+  heroImageUrl: string;
   content: string; // HTML content
   products: Product[];
+  tags: string[];
   createdAt: string;
 }
 

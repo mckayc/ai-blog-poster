@@ -18,33 +18,53 @@ This is an AI-powered, self-hosted web application to generate comparison blog p
     API_KEY=YOUR_GEMINI_API_KEY_HERE
     ```
 
-3.  **Build and Run with Docker Compose:**
+3.  **Create your Docker Compose file:**
+    Create a file named `docker-compose.yml` and paste the following content into it. This version includes a **named volume** to ensure your data persists.
+
+    ```yaml
+    version: '3.8'
+
+    services:
+      app:
+        build: .
+        ports:
+          - "8989:3000"
+        volumes:
+          - postgamedata:/usr/src/app/data
+        env_file:
+          - .env
+        restart: unless-stopped
+
+    volumes:
+      postgamedata:
+    ```
+
+4.  **Build and Run with Docker Compose:**
     Open your terminal, navigate to the project directory, and run the following command:
 
     ```bash
-    docker-compose up --build
+    docker-compose up --build -d
     ```
 
-    - The `--build` flag tells Docker Compose to build the image from the `Dockerfile` the first time you run it.
-    - This command will start the application server inside a Docker container.
+    - The `--build` flag tells Docker Compose to build the image the first time.
+    - The `-d` flag runs the container in detached mode (in the background).
 
-4.  **Access the Application:**
+5.  **Access the Application:**
     Once the container is running, open your web browser and go to:
     [http://localhost:8989](http://localhost:8989)
 
-5.  **Test your API Key:**
-    Navigate to the "Dashboard" page in the application and click the "Test Connection" button to ensure your API key is working correctly.
+6.  **Test your API Key:**
+    Navigate to the "Dashboard" page and click "Test Connection" to ensure your API key is working.
 
 ## How it Works
 
--   **Backend:** A lightweight Node.js/Express server handles API requests and interacts with the Gemini API. It follows a professional controller/service architecture.
+-   **Backend:** A lightweight Node.js/Express server handles API requests and interacts with the Gemini API.
 -   **Frontend:** A React single-page application provides the user interface.
--   **Database:** An SQLite database stores all your data (settings, posts, templates).
--   **Configuration:** Server configuration and API keys are managed via an `.env` file for security and flexibility.
--   **Persistence:** A Docker Volume is used to map the SQLite database file from inside the container to a `./data` directory on your host machine. This ensures your data is safe and persists even if the container is stopped or removed.
+-   **Database:** An SQLite database stores all your data.
+-   **Data Persistence:** A Docker **named volume** (`postgamedata`) is used to store the SQLite database. This is crucial as it keeps your data safe and separate from the container's lifecycle, preventing data loss when you stop or rebuild the container.
 
 ## Stopping the Application
 
-To stop the running application, press `Ctrl + C` in the terminal where `docker-compose up` is running.
+To stop the running application, run `docker-compose down` in the project directory. Your data will be safe in the Docker volume.
 
-To restart it later, simply run `docker-compose up` again from the project directory.
+To restart it later, simply run `docker-compose up -d` again.

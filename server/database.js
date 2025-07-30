@@ -15,14 +15,25 @@ let db;
 
 // Basic migration logic
 const runMigrations = async (dbInstance) => {
-    // Migration 1: Add 'name' column to posts table
     const columns = await dbInstance.all('PRAGMA table_info(posts)');
-    const hasNameColumn = columns.some(c => c.name === 'name');
-    if (!hasNameColumn) {
+    
+    // Migration 1: Add 'name' column
+    if (!columns.some(c => c.name === 'name')) {
         console.log("Running migration: Adding 'name' column to 'posts' table.");
         await dbInstance.exec('ALTER TABLE posts ADD COLUMN name TEXT');
-        // Backfill name with existing title for old records
         await dbInstance.exec('UPDATE posts SET name = title WHERE name IS NULL');
+    }
+
+    // Migration 2: Add 'heroImageUrl' column
+    if (!columns.some(c => c.name === 'heroImageUrl')) {
+        console.log("Running migration: Adding 'heroImageUrl' column to 'posts' table.");
+        await dbInstance.exec('ALTER TABLE posts ADD COLUMN heroImageUrl TEXT');
+    }
+
+    // Migration 3: Add 'tags' column
+    if (!columns.some(c => c.name === 'tags')) {
+        console.log("Running migration: Adding 'tags' column to 'posts' table.");
+        await dbInstance.exec('ALTER TABLE posts ADD COLUMN tags TEXT');
     }
 }
 
@@ -46,7 +57,9 @@ export const getDb = async () => {
       title TEXT NOT NULL,
       content TEXT NOT NULL,
       products TEXT,
-      createdAt TEXT NOT NULL
+      createdAt TEXT NOT NULL,
+      heroImageUrl TEXT,
+      tags TEXT
     );
 
     CREATE TABLE IF NOT EXISTS templates (

@@ -14,7 +14,8 @@ const quillModules = {
     [{ 'header': [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-    ['link', 'image', 'blockquote'],
+    ['link', 'image', 'blockquote', 'code-block'],
+    [{ 'align': [] }],
     ['clean']
   ],
 };
@@ -27,6 +28,8 @@ const EditPost: React.FC = () => {
     const [post, setPost] = useState<BlogPost | null>(null);
     const [name, setName] = useState('');
     const [title, setTitle] = useState('');
+    const [heroImageUrl, setHeroImageUrl] = useState('');
+    const [tags, setTags] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [regenerationPrompt, setRegenerationPrompt] = useState('');
     
@@ -46,7 +49,7 @@ const EditPost: React.FC = () => {
         const performInitialStream = async (newPost: BlogPost) => {
             setIsStreaming(true);
             setStreamError(null);
-            setContent(''); // Clear placeholder content
+            setContent('');
 
             try {
                 const instructions = searchParams.get('instructions') || '';
@@ -70,30 +73,37 @@ const EditPost: React.FC = () => {
                 if (!response.body) throw new Error("Response body is missing.");
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let accumulatedContent = '';
+                let accumulatedJson = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
                     const chunk = decoder.decode(value, { stream: true });
-                    if (chunk.startsWith('STREAM_ERROR:')) {
+                     if (chunk.startsWith('STREAM_ERROR:')) {
                         throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
                     }
-                    accumulatedContent += chunk;
-                    setContent(prev => prev + chunk);
+                    accumulatedJson += chunk;
+                    
+                    try {
+                       const parsed = JSON.parse(accumulatedJson);
+                       setTitle(parsed.title || '');
+                       setHeroImageUrl(parsed.heroImageUrl || '');
+                       setContent(parsed.content || '');
+                       setTags(parsed.tags || []);
+                    } catch (e) {
+                       // JSON is not complete yet, continue accumulating
+                    }
+
+                    if (done) break;
                 }
 
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = accumulatedContent;
-                const h1 = tempDiv.querySelector('h1');
-                const finalTitle = h1 ? h1.textContent || 'Untitled Post' : 'Untitled Post';
-                if (h1) h1.remove();
-                const finalHtml = tempDiv.innerHTML;
+                const finalData = JSON.parse(accumulatedJson);
 
-                setTitle(finalTitle);
-                setContent(finalHtml);
+                setTitle(finalData.title);
+                setHeroImageUrl(finalData.heroImageUrl);
+                setContent(finalData.content);
+                setTags(finalData.tags);
 
-                const updatedPost = { ...newPost, name: newPost.name, title: finalTitle, content: finalHtml };
+                const updatedPost: BlogPost = { ...newPost, ...finalData, name: newPost.name };
                 await db.updatePost(updatedPost);
                 setPost(updatedPost);
                 
@@ -114,9 +124,10 @@ const EditPost: React.FC = () => {
                 setName(foundPost.name);
                 setTitle(foundPost.title);
                 setContent(foundPost.content);
+                setHeroImageUrl(foundPost.heroImageUrl);
+                setTags(foundPost.tags);
                 
-                const isNew = searchParams.get('new') === 'true';
-                if (isNew) {
+                if (searchParams.get('new') === 'true') {
                     await performInitialStream(foundPost);
                 }
 
@@ -135,7 +146,7 @@ const EditPost: React.FC = () => {
     const handleSave = async () => {
         if (!post) return;
         setIsSaving(true);
-        const updatedPost = { ...post, name, title, content };
+        const updatedPost = { ...post, name, title, content, heroImageUrl, tags };
         try {
             await db.updatePost(updatedPost);
             setPost(updatedPost);
@@ -172,13 +183,26 @@ const EditPost: React.FC = () => {
             alert('Failed to delete post.');
         }
     };
+    
+    const handleDuplicate = async () => {
+        if (!post) return;
+        const postToDuplicate = { ...post, id: '', name: `${post.name} (Copy)` };
+        try {
+            const response = await db.savePost(postToDuplicate);
+            if (response.id) {
+                navigate(`/edit/${response.id}`);
+            }
+        } catch (error) {
+            alert('Failed to duplicate post.');
+            console.error(error);
+        }
+    };
 
     const handleRegenerate = async () => {
         if (!regenerationPrompt.trim() || !post) return;
         setIsStreaming(true);
         setStreamError(null);
         
-        const existingHtml = `<h1>${title}</h1>\n${content}`;
         const originalContent = content; // Keep a copy to restore on error
         setContent(''); // Clear for streaming
 
@@ -187,7 +211,8 @@ const EditPost: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    existingContent: existingHtml,
+                    existingContent: content,
+                    existingTitle: title,
                     newInstructions: regenerationPrompt,
                 })
             });
@@ -195,7 +220,6 @@ const EditPost: React.FC = () => {
             if (!response.body) throw new Error("Response body is missing.");
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let accumulatedContent = '';
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -204,23 +228,8 @@ const EditPost: React.FC = () => {
                 if (chunk.startsWith('STREAM_ERROR:')) {
                     throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
                 }
-                accumulatedContent += chunk;
                 setContent(prev => prev + chunk);
             }
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = accumulatedContent;
-            const h1 = tempDiv.querySelector('h1');
-            const finalTitle = h1 ? h1.textContent || title : title;
-            if (h1) h1.remove();
-            const finalHtml = tempDiv.innerHTML;
-
-            setTitle(finalTitle);
-            setContent(finalHtml);
-
-            const updatedPost = { ...post, name, title: finalTitle, content: finalHtml };
-            await db.updatePost(updatedPost);
-            setPost(updatedPost);
 
         } catch (error: any) {
             setStreamError(error.message || "An unknown regeneration error occurred.");
@@ -242,37 +251,46 @@ const EditPost: React.FC = () => {
     return (
      <>
         <style>{`
-          .ql-editor {
-            min-height: 500px;
-            font-size: 16px;
-            line-height: 1.6;
-            background-color: #0f172a; /* slate-900 */
-            color: #cbd5e1; /* slate-300 */
-          }
-          .ql-toolbar {
-            background-color: #1e293b; /* slate-800 */
-            border-top-left-radius: 0.75rem;
-            border-top-right-radius: 0.75rem;
-            border: 1px solid #334155 !important; /* slate-700 */
-          }
-          .ql-container {
-            border-bottom-left-radius: 0.75rem;
-            border-bottom-right-radius: 0.75rem;
-            border: 1px solid #334155 !important; /* slate-700 */
-          }
-          .ql-snow .ql-stroke { stroke: #d1d5db; }
-          .ql-snow .ql-picker-label { color: #d1d5db; }
-          .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: transparent !important; }
-          .ql-snow .ql-picker.ql-expanded .ql-picker-options { background-color: #334155; border-color: #475569 !important; }
-          .ql-snow .ql-picker-options .ql-picker-item:hover { background-color: #475569; }
-          .ql-snow .ql-editor h1 { font-size: 2.25em; }
-          .ql-snow .ql-editor h2 { font-size: 1.8em; }
-          .ql-snow .ql-editor h3 { font-size: 1.5em; }
-          .ql-snow .ql-editor a { color: #818cf8; }
-          .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; }
+            .ql-editor {
+                min-height: 500px;
+                font-size: 16px;
+                line-height: 1.6;
+                background-color: #0f172a; /* slate-900 */
+                color: #cbd5e1; /* slate-300 */
+            }
+            .ql-toolbar {
+                background-color: #1e293b; /* slate-800 */
+                border-top-left-radius: 0.75rem;
+                border-top-right-radius: 0.75rem;
+                border: 1px solid #334155 !important; /* slate-700 */
+            }
+            .ql-container {
+                border-bottom-left-radius: 0.75rem;
+                border-bottom-right-radius: 0.75rem;
+                border: 1px solid #334155 !important; /* slate-700 */
+            }
+            .ql-snow .ql-stroke { stroke: #d1d5db; }
+            .ql-snow .ql-picker-label { color: #d1d5db; }
+            .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: transparent !important; }
+            .ql-snow .ql-picker.ql-expanded .ql-picker-options { background-color: #334155; border-color: #475569 !important; }
+            .ql-snow .ql-picker-options .ql-picker-item:hover { background-color: #475569; }
+            .ql-snow .ql-editor h1, .ql-snow .ql-editor h2, .ql-snow .ql-editor h3 { border-bottom: 1px solid #334155; padding-bottom: 0.3em; margin-top: 1.5em; margin-bottom: 1em; }
+            .ql-snow .ql-editor a { color: #818cf8; text-decoration: none; }
+            .ql-snow .ql-editor a:hover { text-decoration: underline; }
+            .ql-snow .ql-editor blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #9ca3af; font-style: italic; }
+            .ql-snow .ql-editor pre.ql-syntax { background-color: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 0.5rem; }
+            .ql-snow .ql-editor table { width: 100%; border-collapse: collapse; }
+            .ql-snow .ql-editor th, .ql-snow .ql-editor td { border: 1px solid #334155; padding: 8px; }
+            .ql-snow .ql-editor th { background-color: #1e293b; font-weight: bold; }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
+                 {streamError && (
+                    <Card className="border border-red-500 bg-red-900/30">
+                        <h3 className="text-lg font-semibold text-red-300 mb-2">Error</h3>
+                        <pre className="text-red-300 text-sm whitespace-pre-wrap break-words font-mono bg-slate-900 p-4 rounded-md">{streamError}</pre>
+                    </Card>
+                )}
                 <Card>
                     <div className="space-y-4">
                         <Input 
@@ -303,15 +321,9 @@ const EditPost: React.FC = () => {
                         </div>
                     </div>
                 </Card>
-                 {streamError && (
-                    <Card className="border border-red-500 bg-red-900/30">
-                        <h3 className="text-lg font-semibold text-red-300 mb-2">Error</h3>
-                        <p className="text-red-300 text-sm font-mono">{streamError}</p>
-                    </Card>
-                )}
-                <Card className="!p-0">
+                <Card className="!p-0 !bg-transparent !shadow-none">
                     {isStreaming && (
-                         <div className="p-4 border-b border-slate-700 text-yellow-300 flex items-center">
+                         <div className="p-4 border-b border-slate-700 text-yellow-300 flex items-center bg-slate-800 rounded-t-xl">
                             <svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -336,8 +348,8 @@ const EditPost: React.FC = () => {
                         <Button onClick={handleSave} disabled={isSaving || isStreaming} className="w-full">
                             {isSaving ? 'Saving...' : 'Save Changes'}
                         </Button>
-                        <Button variant="secondary" onClick={() => navigate('/manage')} className="w-full">
-                            Close
+                        <Button onClick={handleDuplicate} disabled={isSaving || isStreaming} className="w-full" variant="secondary">
+                            Duplicate Post
                         </Button>
                         <Button variant="danger" onClick={() => setShowDeleteConfirm(true)} className="w-full" disabled={isStreaming}>
                             Delete Post
@@ -345,7 +357,28 @@ const EditPost: React.FC = () => {
                     </div>
                 </Card>
                 <Card>
-                    <h2 className="text-lg font-semibold text-white mb-4">Regenerate Post</h2>
+                    <h2 className="text-lg font-semibold text-white mb-4">Post Settings</h2>
+                    <div className="space-y-4">
+                        <Input
+                            label="Hero Image URL"
+                            id="hero-image-url"
+                            value={heroImageUrl}
+                            onChange={e => setHeroImageUrl(e.target.value)}
+                            disabled={isStreaming}
+                            placeholder="https://.../image.jpg"
+                        />
+                        <Input
+                            label="SEO Tags (comma-separated)"
+                            id="tags"
+                            value={tags.join(', ')}
+                            onChange={e => setTags(e.target.value.split(',').map(t => t.trim()))}
+                            disabled={isStreaming}
+                            placeholder="e.g., tech, review, comparison"
+                        />
+                    </div>
+                </Card>
+                <Card>
+                    <h2 className="text-lg font-semibold text-white mb-4">Regenerate Content</h2>
                     <div className="space-y-2">
                         <Textarea
                             label="Instructions for AI"

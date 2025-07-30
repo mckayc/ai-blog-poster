@@ -139,7 +139,6 @@ const Generator: React.FC = () => {
       return;
     }
     
-    // Validate products have at least a title
     if(products.some(p => !p.title.trim())) {
         setError("All products must have a title. Please fetch data or enter titles manually.");
         setIsLoading(false);
@@ -150,9 +149,11 @@ const Generator: React.FC = () => {
       const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
       const newPostData = {
         products: products,
-        name: `Post about ${products.map(p => p.title || 'product').join(' and ')}`, // Set internal name
+        name: `Post about ${products.map(p => p.title || 'product').join(' and ')}`,
         title: `New Post - ${new Date().toLocaleDateString()}`,
-        content: '', // Start with empty content
+        content: '<p>Generating content...</p>',
+        heroImageUrl: '',
+        tags: [],
       };
       
       const response = await db.savePost(newPostData);

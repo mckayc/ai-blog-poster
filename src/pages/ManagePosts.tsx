@@ -48,14 +48,23 @@ const ManagePosts: React.FC = () => {
         <div className="space-y-4">
           {posts.map(post => (
             <Card key={post.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{post.title}</h3>
+              <div className="flex-grow">
+                <h3 className="text-lg font-semibold text-white">{post.name || post.title}</h3>
+                <p className="text-sm text-slate-400">
+                  Public Title: {post.title}
+                </p>
                 <p className="text-sm text-slate-400">
                   Generated on {new Date(post.createdAt).toLocaleDateString()}
                 </p>
-                <p className="text-sm text-slate-400 mt-1">
-                  Compared {post.products.length} product(s).
-                </p>
+                {post.tags && post.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {post.tags.map(tag => (
+                            <span key={tag} className="bg-slate-700 text-indigo-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-2 flex-shrink-0">
                 <Button variant="secondary" onClick={() => navigate(`/edit/${post.id}`)}>Edit</Button>

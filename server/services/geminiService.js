@@ -95,15 +95,18 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       - Brand: ${p.brand || 'N/A'}
       - Title: ${p.title}
       - Affiliate Link: ${p.affiliateLink}
+      - Image URL: ${p.imageUrl}
       - Details: ${p.description}
       - Price: ${p.price}
     `).join('\n');
     
     const defaultUserPrompt = `
       Write a comprehensive and engaging blog post comparing the products provided.
-      - Create a detailed comparison, discussing the pros and cons of each product.
-      - Incorporate the affiliate links naturally within the text.
-      - Conclude with a summary and a recommendation for different types of buyers.
+      The structure should be:
+      1. An introduction.
+      2. A section for each product, including its image and a detailed description.
+      3. A comparison table.
+      4. A final recommendation.
     `;
     
     const toneInstruction = settings.tone 
@@ -111,22 +114,26 @@ export const generateBlogPostStream = async (products, instructions, templatePro
         : 'The overall tone of the post must be neutral and informative.';
 
     const masterPrompt = `
-      You are an expert blog writer specializing in product comparisons. Your primary task is to write an engaging and informative comparison blog post using the product data provided.
+      You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons. Your primary task is to write a comparison blog post using the product data provided.
 
-      You should use the following user-provided template as a structural guide for your post. However, if the template seems unrelated to comparing the provided products, you MUST ignore the template's specific instructions and write a standard comparison post that includes an introduction, a detailed look at each product, a comparison section (like a table or pros/cons), and a final recommendation. The product comparison is always the most important goal.
+      You should use the user-provided template as a structural guide. However, if the template seems unrelated to comparing products, you MUST IGNORE it and write a standard, high-quality comparison post. The product comparison is always the most important goal.
 
       **User-Provided Template/Structure:**
       {{USER_PROMPT_TEMPLATE}}
 
       ---
-      **CRITICAL OUTPUT RULES (MUST be followed regardless of the template):**
-      1.  The VERY FIRST element in the HTML you generate MUST be an \`<h1>\` tag containing a compelling, SEO-friendly title for the post.
-      2.  Your output MUST be valid, well-structured HTML, using headings (h2, h3), paragraphs (p), and lists (ul, li). Use bold tags (strong) for emphasis.
-      3.  Whenever you mention a product, you MUST integrate its affiliate link naturally. The link text for the affiliate link MUST be exactly: "{{CTA_TEXT}}".
-          Example: "The Super-Widget 5000 is great for beginners. <a href="...affiliate_link_here...">{{CTA_TEXT}}</a>"
-      4.  ${toneInstruction}
-      5.  Follow all instructions in the 'Global Settings' and 'Specific Instructions' sections below.
-      6.  After all other content, the VERY LAST element must be a footer: <p class="footer-disclaimer">{{FOOTER_TEXT}}</p>
+      **CRITICAL OUTPUT RULES (MUST be followed):**
+      1.  **JSON Output:** Your entire response must be a single, valid JSON object.
+      2.  **JSON Schema:** The JSON object must have four keys: "title" (string), "heroImageUrl" (string), "content" (string), and "tags" (array of strings).
+      3.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
+      4.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
+      5.  **HTML Content:** The "content" value must be a string of well-structured HTML.
+      6.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
+      7.  **Comparison Table:** The HTML MUST include a comparison table (\`<table>\`) that compares key features of the products side-by-side. The table should have columns like "Feature", "${products[0]?.title || 'Product 1'}", "${products[1]?.title || 'Product 2'}".
+      8.  **Affiliate Links:** Whenever you mention a product in a context where a user might buy, integrate its affiliate link naturally. The link text MUST be exactly: "{{CTA_TEXT}}".
+      9.  **Tone:** ${toneInstruction}
+      10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p class="footer-disclaimer">{{FOOTER_TEXT}}</p>\`.
+      11. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
 
       ---
       **Global Settings (General Writing Style):**
@@ -150,16 +157,34 @@ export const generateBlogPostStream = async (products, instructions, templatePro
     
     console.log('--- FINAL PROMPT SENT TO GEMINI (STREAM) ---');
     console.log(finalPrompt);
+    
+    const responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          heroImageUrl: { type: Type.STRING },
+          content: { type: Type.STRING },
+          tags: { 
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        },
+        required: ["title", "heroImageUrl", "content", "tags"]
+    };
 
     const response = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
-        contents: finalPrompt
+        contents: finalPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema
+        }
     });
     
     return response;
 };
 
-export const regenerateBlogPostStream = async (existingContent, newInstructions) => {
+export const regenerateBlogPostStream = async (existingContent, existingTitle, newInstructions) => {
     const apiKey = getApiKey();
     const settings = await getSettings();
     const ai = new GoogleGenAI({ apiKey });
@@ -172,19 +197,20 @@ export const regenerateBlogPostStream = async (existingContent, newInstructions)
     **RULES:**
     1.  Rewrite the entire article, do not just add to it or comment on it.
     2.  Your output MUST be the full, rewritten article in valid HTML.
-    3.  The VERY FIRST element of your output MUST be an \`<h1>\` tag with the post's title.
+    3.  The HTML should be well-structured.
     4.  Preserve the core product information and affiliate links from the original article.
     5.  Adhere to the new instructions to modify the tone, structure, or content.
-    6.  After all other content, the VERY LAST element must be a footer: <p class="footer-disclaimer">${settings.footerText}</p>
+    6.  After all other content, the VERY LAST element must be a footer: \`<p class="footer-disclaimer">${settings.footerText}</p>\`
 
     ---
     **ORIGINAL HTML ARTICLE TO REWRITE:**
     \`\`\`html
+    <h1>${existingTitle}</h1>
     ${existingContent}
     \`\`\`
     ---
 
-    Now, provide the complete, rewritten HTML based on the new instructions.
+    Now, provide the complete, rewritten HTML based on the new instructions. Your response should only be the raw HTML content, starting with an h2 tag (as the h1 is separate).
     `;
 
     console.log('--- REGENERATION PROMPT SENT TO GEMINI (STREAM) ---');
