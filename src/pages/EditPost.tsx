@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactQuill, { Quill } from 'react-quill';
@@ -77,13 +78,17 @@ const EditPost: React.FC = () => {
     
     const isInitialGeneration = searchParams.get('new') === 'true';
 
+    console.log(`[EditPost Debug] Component Mounted. Post ID: ${postId}. Is Initial Generation: ${isInitialGeneration}`);
+
     useEffect(() => {
         if (!postId) {
+            console.error("[EditPost Debug] No postId found in URL, navigating away.");
             navigate('/manage');
             return;
         }
 
         const performInitialStream = async (newPost: BlogPost) => {
+            console.log("[EditPost Debug] performInitialStream: Starting initial content generation.");
             setIsStreaming(true);
             setStreamError(null);
             setContent('');
@@ -93,10 +98,12 @@ const EditPost: React.FC = () => {
                 const templateId = searchParams.get('templateId');
                 let templatePrompt: string | null = null;
                 if(templateId) {
+                    console.log(`[EditPost Debug] performInitialStream: Found templateId: ${templateId}`);
                     const templates: Template[] = await db.getTemplates();
                     templatePrompt = templates.find(t => t.id === templateId)?.prompt || null;
                 }
 
+                console.log("[EditPost Debug] performInitialStream: Sending request to /api/gemini/generate-post-stream");
                 const response = await fetch('/api/gemini/generate-post-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -119,19 +126,20 @@ const EditPost: React.FC = () => {
                         throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
                     }
                     accumulatedJson += chunk;
-                    
-                    // Live update for perceived speed, but it can be janky.
-                    // Let's just update at the end for a smoother experience.
                     if (done) break;
                 }
-
+                
+                console.log("[EditPost Debug] performInitialStream: Stream finished. Accumulated JSON:", accumulatedJson);
                 const finalData = JSON.parse(accumulatedJson);
+                console.log("[EditPost Debug] performInitialStream: Parsed final data from stream:", finalData);
+
 
                 // Gracefully handle potentially missing data from AI response
                 const newTitle = finalData.title || 'Generation Failed: Untitled';
                 const newHeroImage = finalData.heroImageUrl || '';
                 const newContent = finalData.content || '<p>Error: AI failed to generate content.</p>';
                 const newTags = Array.isArray(finalData.tags) ? finalData.tags : [];
+                console.log("[EditPost Debug] performInitialStream: Data being set to state - Title:", newTitle, "Tags:", newTags);
 
 
                 setTitle(newTitle);
@@ -147,27 +155,51 @@ const EditPost: React.FC = () => {
                     tags: newTags,
                     name: newPost.name 
                 };
+                
+                console.log("[EditPost Debug] performInitialStream: Saving updated post to DB:", updatedPost);
                 await db.updatePost(updatedPost);
                 setPost(updatedPost);
                 
             } catch (error: any) {
-                console.error("Streaming failed:", error);
+                console.error("[EditPost Debug] performInitialStream: CATCH block. Streaming failed:", error);
                 setStreamError(error.message || "An unknown error occurred during streaming.");
             } finally {
                 setIsStreaming(false);
                 setSearchParams({}, { replace: true });
+                console.log("[EditPost Debug] performInitialStream: Finished.");
             }
         };
 
         const loadPost = async () => {
+            console.log(`[EditPost Debug] loadPost: Starting to load post with ID: ${postId}`);
             setIsLoading(true);
             try {
                 const foundPost = await db.getPost(postId);
+                console.log('[EditPost Debug] loadPost: Received raw data from server:', { ...foundPost });
+
+                if (!foundPost) {
+                    throw new Error(`Post with ID ${postId} not found.`);
+                }
+                
+                // CRITICAL LOGGING: Check the structure of the received object
+                console.log(`[EditPost Debug] loadPost: Checking received 'tags'. Value:`, foundPost.tags, `| Type:`, typeof foundPost.tags, `| Is Array:`, Array.isArray(foundPost.tags));
+                console.log(`[EditPost Debug] loadPost: Checking received 'products'. Value:`, foundPost.products, `| Type:`, typeof foundPost.products, `| Is Array:`, Array.isArray(foundPost.products));
+
                 setPost(foundPost);
+                
+                console.log("[EditPost Debug] loadPost: Setting state with name:", foundPost.name);
                 setName(foundPost.name);
+                
+                console.log("[EditPost Debug] loadPost: Setting state with title:", foundPost.title);
                 setTitle(foundPost.title);
+                
+                console.log("[EditPost Debug] loadPost: Setting state with content.");
                 setContent(foundPost.content);
+                
+                console.log("[EditPost Debug] loadPost: Setting state with heroImageUrl:", foundPost.heroImageUrl);
                 setHeroImageUrl(foundPost.heroImageUrl);
+                
+                console.log("[EditPost Debug] loadPost: Setting state with tags:", (foundPost.tags || []));
                 setTags(foundPost.tags || []);
                 
                 if (isInitialGeneration) {
@@ -175,26 +207,37 @@ const EditPost: React.FC = () => {
                 }
 
             } catch (err) {
-                console.error(err);
+                console.error('[EditPost Debug] loadPost: CATCH block. Error loading post:', err);
                 alert(`Failed to load post: ${err instanceof Error ? err.message : 'Unknown error'}`);
                 navigate('/manage');
             } finally {
                 setIsLoading(false);
+                 console.log("[EditPost Debug] loadPost: Finished.");
             }
         };
 
         loadPost();
     }, [postId, navigate, searchParams, setSearchParams, isInitialGeneration]);
 
+    useEffect(() => {
+      console.log('[EditPost Debug] State Change: `post` object updated:', post);
+    }, [post]);
+    
+    useEffect(() => {
+        console.log('[EditPost Debug] State Change: `tags` array updated:', tags);
+    }, [tags]);
+
+
     const handleSave = async () => {
         if (!post) return;
         setIsSaving(true);
         const updatedPost = { ...post, name, title, content, heroImageUrl, tags };
+        console.log("[EditPost Debug] handleSave: Saving post...", updatedPost);
         try {
             await db.updatePost(updatedPost);
             setPost(updatedPost);
         } catch (error) {
-            console.error(error);
+            console.error("[EditPost Debug] handleSave: Error saving post.", error);
             alert('Failed to save post.');
         } finally {
             setIsSaving(false);
@@ -204,8 +247,10 @@ const EditPost: React.FC = () => {
     const handleGenerateTitle = async () => {
         if (!post || post.products.length === 0) return;
         setIsGeneratingTitle(true);
+        console.log("[EditPost Debug] handleGenerateTitle: Generating title for products:", post.products);
         try {
             const titles = await gemini.generateTitleIdea(post.products);
+            console.log("[EditPost Debug] handleGenerateTitle: Received titles:", titles);
             if (titles && titles.length > 0) {
                 setTitle(titles[0]);
             }
@@ -218,11 +263,12 @@ const EditPost: React.FC = () => {
 
     const handleDelete = async () => {
         if (!post) return;
+        console.log("[EditPost Debug] handleDelete: Deleting post:", post.id);
         try {
             await db.deletePost(post.id);
             navigate('/manage');
         } catch (error) {
-            console.error(error);
+            console.error("[EditPost Debug] handleDelete: Error deleting post.", error);
             alert('Failed to delete post.');
         }
     };
@@ -230,6 +276,7 @@ const EditPost: React.FC = () => {
     const handleDuplicate = async () => {
         if (!post) return;
         const postToDuplicate = { ...post, id: '', name: `${post.name} (Copy)` };
+        console.log("[EditPost Debug] handleDuplicate: Duplicating post. New object:", postToDuplicate);
         try {
             const response = await db.savePost(postToDuplicate);
             if (response.id) {
@@ -245,6 +292,7 @@ const EditPost: React.FC = () => {
         if (!regenerationPrompt.trim() || !post) return;
         setIsStreaming(true);
         setStreamError(null);
+        console.log("[EditPost Debug] handleRegenerate: Regenerating with prompt:", regenerationPrompt);
         
         const originalContent = content;
         const originalTitle = title;
@@ -282,7 +330,9 @@ const EditPost: React.FC = () => {
                 if (done) break;
             }
 
+            console.log("[EditPost Debug] handleRegenerate: Stream finished. Accumulated JSON:", accumulatedJson);
             const finalData = JSON.parse(accumulatedJson);
+            console.log("[EditPost Debug] handleRegenerate: Parsed final data:", finalData);
             setTitle(finalData.title);
             setContent(finalData.content);
             
@@ -291,6 +341,7 @@ const EditPost: React.FC = () => {
             setPost(updatedPost);
 
         } catch (error: any) {
+            console.error("[EditPost Debug] handleRegenerate: CATCH block. Error regenerating.", error);
             setStreamError(error.message || "An unknown regeneration error occurred.");
             setContent(originalContent);
             setTitle(originalTitle);
@@ -312,7 +363,7 @@ const EditPost: React.FC = () => {
     }
 
     if (!post) {
-        return <div className="text-center text-red-400 p-8">Post not found. Redirecting...</div>;
+        return <div className="text-center text-red-400 p-8">Post not found. It may have been deleted. Redirecting...</div>;
     }
     
     return (
