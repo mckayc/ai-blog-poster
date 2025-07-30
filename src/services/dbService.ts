@@ -1,3 +1,4 @@
+
 import { BlogPost, Template, AppSettings, Product } from '../types';
 
 const handleResponse = async (res: Response) => {

@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import * as postController from './controllers/postController.js';
 import * as productController from './controllers/productController.js';

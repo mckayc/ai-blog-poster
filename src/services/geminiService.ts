@@ -1,3 +1,4 @@
+
 import { Product, Template } from '../types';
 
 const handleResponse = async (res: Response) => {
