@@ -74,7 +74,6 @@ const EditPost: React.FC = () => {
 
     useEffect(() => {
         if (!postId) {
-            console.error("[EditPost] No postId found in URL, navigating away.");
             navigate('/manage');
             return;
         }
@@ -132,9 +131,8 @@ const EditPost: React.FC = () => {
                 setPost(updatedPost);
                 
             } catch (error: any) {
-                console.error("[EditPost] Initial stream failed:", error);
                 setStreamError(error.message || "An unknown error occurred during streaming.");
-                setPost(newPost); // Restore original post data on error
+                setPost(newPost);
             } finally {
                 setIsStreaming(false);
                 setSearchParams({}, { replace: true });
@@ -143,30 +141,23 @@ const EditPost: React.FC = () => {
 
         const loadPost = async () => {
             setIsLoading(true);
-            console.log(`[EditPost] Starting to load post with ID: ${postId}`);
             try {
                 const foundPost = await db.getPost(postId);
-                console.log(`[EditPost] Raw data received from server for post ${postId}:`, JSON.parse(JSON.stringify(foundPost)));
-
                 if (!foundPost) throw new Error(`Post with ID ${postId} not found.`);
                 
-                console.log(`[EditPost] Pre-sanitization tags for ${postId}:`, foundPost.tags, `(type: ${typeof foundPost.tags})`);
+                // Final line of defense: ensure tags/products are arrays client-side.
                 const sanitizedPost = {
                     ...foundPost,
                     tags: Array.isArray(foundPost.tags) ? foundPost.tags : [],
                     products: Array.isArray(foundPost.products) ? foundPost.products : [],
                 };
-                console.log(`[EditPost] Post-sanitization tags for ${postId}:`, sanitizedPost.tags);
                 
-                console.log(`[EditPost] Setting state with sanitized post...`);
                 setPost(sanitizedPost);
-                console.log(`[EditPost] State has been set for post ${postId}.`);
                 
                 if (isInitialGeneration) {
                     await performInitialStream(sanitizedPost);
                 }
             } catch (err) {
-                console.error('[EditPost] Error loading post:', err);
                 alert(`Failed to load post: ${err instanceof Error ? err.message : 'Unknown error'}`);
                 navigate('/manage');
             } finally {
@@ -255,6 +246,7 @@ const EditPost: React.FC = () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let accumulatedJson = '';
+            let currentPost = post;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -263,19 +255,21 @@ const EditPost: React.FC = () => {
                     throw new Error(chunk.replace('STREAM_ERROR:', '').trim());
                 }
                 accumulatedJson += chunk;
-                // Live update for better UX
+                
                 try {
                     const parsed = JSON.parse(accumulatedJson);
-                    if(parsed.title) handleFieldChange('title', parsed.title);
-                    if(parsed.content) handleFieldChange('content', parsed.content);
+                    currentPost = {
+                        ...currentPost,
+                        title: parsed.title || currentPost.title,
+                        content: parsed.content || currentPost.content,
+                    };
+                    setPost(currentPost);
                 } catch(e) { /* Incomplete JSON, continue */ }
+
                 if (done) break;
             }
-
-            const finalData = JSON.parse(accumulatedJson);
-            const updatedPost = { ...post, title: finalData.title, content: finalData.content };
-            await db.updatePost(updatedPost);
-            setPost(updatedPost);
+            
+            await db.updatePost(currentPost);
 
         } catch (error: any) {
             setStreamError(error.message || "An unknown regeneration error occurred.");
