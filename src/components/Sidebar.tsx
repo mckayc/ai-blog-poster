@@ -1,11 +1,41 @@
 
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import * as db from '../services/dbService';
 
 const navLinkClasses = 'flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200';
 const activeLinkClasses = 'bg-slate-700 text-white';
 
 const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleWriteFromScratch = async () => {
+    setIsCreating(true);
+    try {
+        const newPostData = {
+            name: `New Draft - ${new Date().toLocaleString()}`,
+            title: 'Untitled Post',
+            content: '<p>Start writing your masterpiece here...</p>',
+            products: [],
+            heroImageUrl: '',
+            tags: [],
+        };
+        const response = await db.savePost(newPostData);
+        if (response.id) {
+            navigate(`/edit/${response.id}`);
+        } else {
+            throw new Error("Failed to get a new post ID from the server.");
+        }
+    } catch (e) {
+        console.error("Failed to create a post from scratch:", e);
+        alert("Could not create a new draft. Please try again.");
+    } finally {
+        setIsCreating(false);
+    }
+  };
+
+
   return (
     <aside className="w-64 bg-slate-800 p-4 flex-shrink-0 flex flex-col">
       <div className="flex items-center mb-8">
@@ -23,22 +53,39 @@ const Sidebar: React.FC = () => {
               Dashboard
             </NavLink>
           </li>
-          <li className="mt-2">
+          
+          <li className="mt-4 mb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Content
+          </li>
+          <li>
             <NavLink to="/generator" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
-              Post Generator
+              Create with AI
             </NavLink>
           </li>
-          <li className="mt-2">
+          <li>
+            <button 
+              onClick={handleWriteFromScratch} 
+              disabled={isCreating}
+              className={`${navLinkClasses} w-full text-left`}
+            >
+              {isCreating ? 'Creating Draft...' : 'Write from Scratch'}
+            </button>
+          </li>
+           <li>
             <NavLink to="/manage" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
-              Manage Posts
+              Posts
             </NavLink>
           </li>
-           <li className="mt-2">
+
+          <li className="mt-4 mb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Library
+          </li>
+           <li>
             <NavLink to="/products" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
               Product Library
             </NavLink>
           </li>
-          <li className="mt-2">
+          <li>
             <NavLink to="/templates" className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : ''}`}>
               Prompt Templates
             </NavLink>

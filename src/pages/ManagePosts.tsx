@@ -1,54 +1,72 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { BlogPost } from '../types';
 import * as db from '../services/dbService';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import Textarea from '../components/common/Textarea';
+
+const EditModal: React.FC<{ post: BlogPost; onSave: (updatedPost: BlogPost) => void; onClose: () => void; }> = ({ post, onSave, onClose }) => {
+  const [title, setTitle] = useState(post.title);
+  const [content, setContent] = useState(post.content);
+
+  const handleSave = () => {
+    onSave({ ...post, title, content });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <h2 className="text-2xl font-bold text-white mb-4">Edit Post</h2>
+        <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-slate-700 border border-slate-600 rounded-md py-2 px-3 text-white mb-4"
+        />
+        <Textarea 
+            label="Post Content (HTML)"
+            id="edit-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="flex-grow min-h-0"
+            rows={15}
+        />
+        <div className="mt-6 flex justify-end space-x-3">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 
 const ManagePosts: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [postToEdit, setPostToEdit] = useState<BlogPost | null>(null);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
-  const navigate = useNavigate();
 
   const loadPosts = useCallback(() => {
-    console.log('[ManagePosts] Fetching all posts...');
-    db.getPosts()
-        .then(posts => {
-            console.log('[ManagePosts] Received raw posts from server:', posts);
-            const sortedPosts = posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            
-            // Add a client-side check just in case
-            sortedPosts.forEach(p => {
-                if (!Array.isArray(p.tags)) {
-                    console.error(`[ManagePosts] Client-side validation failed! Post ${p.id} has non-array tags:`, p.tags);
-                    p.tags = []; // Sanitize it
-                }
-            });
-
-            setPosts(sortedPosts);
-            console.log('[ManagePosts] Posts loaded and state set.');
-        })
-        .catch(error => {
-            console.error("[ManagePosts] CRITICAL: Failed to load posts:", error);
-            alert('Failed to load posts. Check console for details.');
-        });
+    const sortedPosts = db.getPosts().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    setPosts(sortedPosts);
   }, []);
   
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
 
-  const handleDeletePost = async () => {
+  const handleUpdatePost = (updatedPost: BlogPost) => {
+    db.updatePost(updatedPost);
+    setPostToEdit(null);
+    loadPosts();
+  };
+
+  const handleDeletePost = () => {
     if (postToDelete) {
-      try {
-        await db.deletePost(postToDelete.id);
-        setPostToDelete(null);
-        loadPosts();
-      } catch (e) {
-        console.error(e);
-        alert("Failed to delete post.");
-      }
+      db.deletePost(postToDelete.id);
+      setPostToDelete(null);
+      loadPosts();
     }
   };
 
@@ -64,31 +82,30 @@ const ManagePosts: React.FC = () => {
         <div className="space-y-4">
           {posts.map(post => (
             <Card key={post.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div className="flex-grow">
-                <h3 className="text-lg font-semibold text-white">{post.name || post.title}</h3>
-                <p className="text-sm text-slate-400">
-                  Public Title: {post.title}
-                </p>
+              <div>
+                <h3 className="text-lg font-semibold text-white">{post.title}</h3>
                 <p className="text-sm text-slate-400">
                   Generated on {new Date(post.createdAt).toLocaleDateString()}
                 </p>
-                {Array.isArray(post.tags) && post.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {post.tags.map(tag => (
-                            <span key={tag} className="bg-slate-700 text-indigo-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                )}
+                <p className="text-sm text-slate-400 mt-1">
+                  Compared {post.products.length} product(s).
+                </p>
               </div>
               <div className="mt-4 sm:mt-0 flex space-x-2 flex-shrink-0">
-                <Button variant="secondary" onClick={() => navigate(`/edit/${post.id}`)}>Edit</Button>
+                <Button variant="secondary" onClick={() => setPostToEdit(post)}>Edit</Button>
                 <Button variant="danger" onClick={() => setPostToDelete(post)}>Delete</Button>
               </div>
             </Card>
           ))}
         </div>
+      )}
+
+      {postToEdit && (
+        <EditModal 
+          post={postToEdit} 
+          onSave={handleUpdatePost} 
+          onClose={() => setPostToEdit(null)} 
+        />
       )}
 
       {postToDelete && (

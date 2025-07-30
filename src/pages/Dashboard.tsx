@@ -1,67 +1,42 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as db from '../services/dbService';
 import { testApiKey } from '../services/geminiService';
-import { AppSettings } from '../types';
 import Card from '../components/common/Card';
+import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';
-import Input from '../components/common/Input';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
-const defaultSettings: AppSettings = {
-    generalInstructions: '',
-    tone: '',
-    ctaText: 'Check Price',
-    footerText: 'As an affiliate, I earn from qualifying purchases. This does not affect the price you pay.'
-};
-
 const Dashboard: React.FC = () => {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [apiKey, setApiKey] = useState('');
+  const [settings, setSettings] = useState('');
   const [testStatus, setTestStatus] = useState<TestStatus>('idle');
+  const [keySaved, setKeySaved] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [apiKeyIsSet, setApiKeyIsSet] = useState(false);
-
-  const checkApiKeyStatus = useCallback(async () => {
-    try {
-        const status = await db.getApiKeyStatus();
-        setApiKeyIsSet(!!status.apiKey);
-        if (!status.apiKey) {
-            setTestStatus('idle');
-        }
-    } catch (e) {
-        console.error(e);
-        setApiKeyIsSet(false);
-    }
-  }, []);
-
 
   useEffect(() => {
-    checkApiKeyStatus();
-    db.getSettings()
-      .then(s => setSettings(s || defaultSettings))
-      .catch(console.error);
-  }, [checkApiKeyStatus]);
-  
-  const handleSettingsChange = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-      setSettings(prev => ({...prev, [key]: value}));
-  }
+    setApiKey(db.getApiKey() || '');
+    setSettings(db.getSettings() || '');
+  }, []);
 
-  const handleSaveSettings = async () => {
-    try {
-        await db.saveSettings(settings);
-        setSettingsSaved(true);
-        setTimeout(() => setSettingsSaved(false), 3000);
-    } catch (e) {
-        console.error(e);
-        alert('Failed to save settings.');
-    }
+  const handleSaveApiKey = () => {
+    db.saveApiKey(apiKey);
+    setKeySaved(true);
+    setTestStatus('idle');
+    setTimeout(() => setKeySaved(false), 3000);
+  };
+
+  const handleSaveSettings = () => {
+    db.saveSettings(settings);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 3000);
   };
   
   const handleTestApiKey = async () => {
     setTestStatus('testing');
-    const isValid = await testApiKey();
+    const isValid = await testApiKey(apiKey);
     setTestStatus(isValid ? 'success' : 'error');
   };
   
@@ -74,83 +49,63 @@ const Dashboard: React.FC = () => {
       case 'error':
         return <span className="text-red-400">Connection failed. Check key.</span>;
       default:
-         if (apiKeyIsSet) {
-            return <span className="text-green-400">API Key is configured on server.</span>;
-         }
-        return <span className="text-slate-400">API Key not set on server.</span>;
+        return null;
     }
   };
 
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white mb-6">Dashboard & Settings</h1>
+      <h1 className="text-3xl font-bold text-white mb-6">Dashboard</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <h2 className="text-xl font-semibold text-white mb-4">API Configuration</h2>
           <p className="text-slate-400 mb-4">
-            Your Gemini API Key must be set in the <code className="bg-slate-700 text-sm p-1 rounded">.env</code> file on the server. The application reads the key from the server environment for security.
+            Your Gemini API Key is required to generate content. It's stored securely in your browser's local storage and never sent anywhere except to Google's API.
           </p>
-          <div className="space-y-4 mt-6">
-             <div className="flex items-center space-x-4">
-                <Button onClick={handleTestApiKey} disabled={!apiKeyIsSet || testStatus === 'testing'}>
+          <div className="space-y-4">
+            <Input
+              label="Gemini API Key"
+              id="api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                setTestStatus('idle');
+              }}
+              placeholder="Enter your API key"
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button onClick={handleTestApiKey} disabled={!apiKey || testStatus === 'testing'}>
                   {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
                 </Button>
-                <div className="h-6 flex items-center">{getStatusIndicator()}</div>
+                <div className="h-6">{getStatusIndicator()}</div>
               </div>
+              <div className="flex items-center space-x-3">
+                 {keySaved && <span className="text-green-400 text-sm">Saved!</span>}
+                <Button onClick={handleSaveApiKey} disabled={!apiKey}>
+                  Save Key
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
 
         <Card>
           <h2 className="text-xl font-semibold text-white mb-4">Global AI Settings</h2>
-           <div className="space-y-4">
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div>
-                  <label htmlFor="tone-select" className="block text-sm font-medium text-slate-300 mb-1">
-                    Tone of Voice
-                  </label>
-                  <select
-                      id="tone-select"
-                      className="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 pl-3 pr-8 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={settings.tone}
-                      onChange={e => handleSettingsChange('tone', e.target.value as AppSettings['tone'])}
-                  >
-                      <option value="">Select a Tone (Optional)</option>
-                      <option value="friendly">Friendly & Conversational</option>
-                      <option value="professional">Professional & Formal</option>
-                      <option value="humorous">Humorous & Witty</option>
-                      <option value="technical">Technical & In-Depth</option>
-                      <option value="casual">Casual & Relaxed</option>
-                      <option value="witty">Witty & Clever</option>
-                      <option value="authoritative">Authoritative & Confident</option>
-                  </select>
-               </div>
-                <Input
-                    label="Affiliate Link CTA Text"
-                    id="cta-text"
-                    value={settings.ctaText}
-                    onChange={(e) => handleSettingsChange('ctaText', e.target.value)}
-                    placeholder="e.g., Check Price"
-                />
-             </div>
-             <Textarea
-                label="General Instructions for AI"
-                id="ai-settings"
-                rows={5}
-                value={settings.generalInstructions}
-                onChange={(e) => handleSettingsChange('generalInstructions', e.target.value)}
-                placeholder="e.g., 'Always include a pros and cons section for each product. The target audience is tech beginners.'"
-              />
-              <Textarea
-                label="Standard Post Footer"
-                id="footer-text"
-                rows={3}
-                value={settings.footerText}
-                onChange={(e) => handleSettingsChange('footerText', e.target.value)}
-                placeholder="e.g., Affiliate link disclosures or a standard closing."
-              />
-          </div>
+          <p className="text-slate-400 mb-4">
+            Provide general information or instructions for the AI to use in all blog posts. For example, specify a target audience, writing tone, or standard disclaimers.
+          </p>
+          <Textarea
+            label="General Instructions for AI"
+            id="ai-settings"
+            rows={5}
+            value={settings}
+            onChange={(e) => setSettings(e.target.value)}
+            placeholder="e.g., 'Write in a friendly, conversational tone for tech beginners. Always include a pros and cons section.'"
+          />
           <div className="mt-4 flex items-center justify-end space-x-3">
             {settingsSaved && <span className="text-green-400 text-sm">Saved!</span>}
             <Button onClick={handleSaveSettings}>Save Settings</Button>
