@@ -68,11 +68,11 @@ export const deleteMultiplePosts = async (req, res) => {
 
 export const generatePostStream = async (req, res) => {
     try {
-        const { products, instructions, templateId, includeComparisonCards } = req.body;
+        const options = req.body;
         
         let templatePrompt = null;
-        if (templateId && templateId !== 'default') {
-            const template = await templateService.getTemplateById(templateId);
+        if (options.templateId && options.templateId !== 'default') {
+            const template = await templateService.getTemplateById(options.templateId);
             if (template) {
                 templatePrompt = template.prompt;
             }
@@ -81,7 +81,7 @@ export const generatePostStream = async (req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        const stream = await geminiService.generateBlogPostStream(products, instructions, templatePrompt, includeComparisonCards);
+        const stream = await geminiService.generateBlogPostStream({ ...options, templatePrompt });
 
         for await (const chunk of stream) {
             res.write(chunk.text);
@@ -99,6 +99,16 @@ export const generateTitleIdea = async (req, res) => {
     try {
         const { products } = req.body;
         const result = await geminiService.generateTitleIdea(products);
+        res.json(result);
+    } catch(error) {
+        handle_error(res, error);
+    }
+};
+
+export const generateTags = async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        const result = await geminiService.generateTags(title, content);
         res.json(result);
     } catch(error) {
         handle_error(res, error);

@@ -108,7 +108,8 @@ export const getDb = async () => {
         products TEXT,
         createdAt TEXT NOT NULL,
         heroImageUrl TEXT,
-        tags TEXT
+        tags TEXT,
+        asins TEXT
       );
 
       CREATE TABLE IF NOT EXISTS templates (

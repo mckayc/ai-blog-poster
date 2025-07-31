@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string; // User-editable internal name
@@ -22,6 +23,7 @@ export interface BlogPost {
   content: string; // HTML content
   products: Product[]; // This is a snapshot of the products at the time of creation
   tags: string[];
+  asins: string;
   createdAt: string;
 }
 

@@ -92,8 +92,46 @@ Respond ONLY with a single, minified JSON array of strings, like ["Title 1", "Ti
     return JSON.parse(response.text.trim());
 };
 
+export const generateTags = async (title, content) => {
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+    
+    const prompt = `You are an SEO expert. Based on the following blog post title and a snippet of its content, generate an array of 5-7 relevant SEO tags.
 
-export const generateBlogPostStream = async (products, instructions, templatePrompt, includeComparisonCards) => {
+Title: ${title}
+Content Snippet: ${content.substring(0, 500)}...
+
+Respond ONLY with a single, minified JSON array of strings, like ["tag1", "tag2", "tag3"]. Do not include any other text or markdown.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+            }
+        }
+    });
+
+    return JSON.parse(response.text.trim());
+};
+
+
+export const generateBlogPostStream = async (options) => {
+    const {
+        products,
+        instructions,
+        templatePrompt,
+        introductionStyle,
+        introductionTone,
+        descriptionStyle,
+        descriptionTone,
+        comparisonCards,
+        photoComparison
+    } = options;
+
     const apiKey = getApiKey();
     const settings = await getSettings();
     const ai = new GoogleGenAI({ apiKey });
@@ -107,73 +145,107 @@ export const generateBlogPostStream = async (products, instructions, templatePro
       - Raw Description/Details: ${p.description}
     `).join('\n');
     
-    const toneInstruction = settings.tone 
-        ? `The overall tone of the post must be: ${settings.tone}.`
-        : 'The overall tone of the post must be neutral and informative.';
+    // --- Dynamic Section Generation ---
+    const getComparisonCardsHtml = () => `
+        <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">Specification Comparison</h2>
+        <!-- A 'Comparison Card' is a self-contained HTML table used to compare a single feature. You MUST use this format to ensure it displays correctly in all editors. -->
+        <!-- Example for one feature:
+        <table style="width:100%; border-collapse: separate; border-spacing: 0; background-color: #2d3748; border-radius: 8px; margin-bottom: 12px; border: 1px solid #4a5568; font-family: sans-serif;">
+          <thead>
+            <tr><th colspan="2" style="padding: 12px 16px; font-size: 1rem; color: #a0aec0; font-weight: normal; border-bottom: 1px solid #4a5568; text-align: left;">Feature Name (e.g., Screen Size)</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top; border-right: 1px solid #4a5568;"><p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 1</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 1 Name</p></td>
+              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top;"><p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 2</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 2 Name</p></td>
+            </tr>
+          </tbody>
+        </table>
+        -->
+        <!-- You MUST generate one of these styled table cards for each key feature to compare. -->
+    `;
+    
+    const getPhotoComparisonHtml = () => `
+        <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">At a Glance</h2>
+        <div style="display:flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; padding: 16px; background-color: #2d3748; border-radius: 8px;">
+            ${products.map(p => `
+            <div style="text-align: center; max-width: 200px;">
+                <a href="${p.affiliateLink || '#'}" style="text-decoration: none;">
+                    <img src="${p.imageUrl}" alt="${p.name}" style="width: 200px; height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #4a5568;" />
+                </a>
+                <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: #a0aec0;">${p.brand || ''}</p>
+                <h4 style="margin: 4px 0 0 0; font-size: 1rem; color: #ffffff;">
+                    <a href="${p.affiliateLink || '#'}" style="color: #ffffff; text-decoration: none;">${p.name}</a>
+                </h4>
+            </div>
+            `).join('')}
+        </div>
+    `;
 
-    const comparisonCardHtml = `A 'Comparison Card' is a self-contained HTML table used to compare a single feature. You MUST use this format to ensure it displays correctly in all editors.
-Example for one feature:
-<table style="width:100%; border-collapse: separate; border-spacing: 0; background-color: #2d3748; border-radius: 8px; margin-bottom: 12px; border: 1px solid #4a5568; font-family: sans-serif;">
-  <thead>
-    <tr>
-      <th colspan="2" style="padding: 12px 16px; font-size: 1rem; color: #a0aec0; font-weight: normal; border-bottom: 1px solid #4a5568; text-align: left;">Feature Name (e.g., Screen Size)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top; border-right: 1px solid #4a5568;">
-        <p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 1</p>
-        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 1 Name</p>
-      </td>
-      <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top;">
-        <p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 2</p>
-        <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 2 Name</p>
-      </td>
-    </tr>
-  </tbody>
-</table>
-You MUST generate one of these tables for each key feature.`;
+    let placement = { beginning: '', middle: '', end: '' };
+    if (photoComparison.enabled) {
+        const html = getPhotoComparisonHtml();
+        if(photoComparison.placement.beginning) placement.beginning += html;
+        if(photoComparison.placement.middle) placement.middle += html;
+        if(photoComparison.placement.end) placement.end += html;
+    }
+    if (comparisonCards.enabled) {
+        const html = getComparisonCardsHtml();
+        if(comparisonCards.placement.beginning) placement.beginning += html;
+        if(comparisonCards.placement.middle) placement.middle += html;
+        if(comparisonCards.placement.end) placement.end += html;
+    }
 
-    const comparisonInstruction = includeComparisonCards
-        ? `**Specification Comparison Section using TABLE-BASED CARDS:**
-After the individual product sections, you MUST create a 'Specification Comparison' section.
-This section MUST use the 'Comparison Card' format defined above, which uses styled HTML tables for maximum compatibility. Do NOT use a standard, plain HTML table grid for this if cards are requested. Generate one styled table card per feature.
-${comparisonCardHtml}`
-        : `**Comparison Table:**
-After the individual product sections, you MUST include a comparison table.
-The table MUST be styled with inline CSS. Use \`<table style="width: 100%; border-collapse: collapse;">\`. Table header cells (\`<th>\`) should be styled with \`style="border: 1px solid #cccccc; padding: 12px; text-align: left; background-color: #f2f2f2; color: #333333; font-weight: bold;"\`. Standard table cells (\`<td>\`) should be styled with \`style="border: 1px solid #cccccc; padding: 12px; text-align: left; vertical-align: top;"\`.`;
-
-
-    const defaultPromptTemplate = `
+    const mainPrompt = `
       You are an expert blog writer specializing in creating beautiful, well-structured, and engaging product comparisons that can be easily pasted into platforms like WordPress or Blogger.
 
       ---
       **CRITICAL OUTPUT RULES (MUST be followed):**
-      1.  **JSON Output:** Your entire response must be a single, valid JSON object.
-      2.  **JSON Schema:** The JSON object must have four keys: "title" (string), "heroImageUrl" (string), "content" (string), and "tags" (array of strings).
-      3.  **Title Generation:** You MUST generate a new, compelling, SEO-friendly title for the blog post that reflects a comparison, such as "Product A vs. Product B: Which is Best for You?". Do NOT just use a single product's title.
-      4.  **Content Quality:** You MUST rewrite and summarize the provided product 'Raw Description/Details' and 'Name/Title', creating original and engaging descriptions. Do NOT simply copy-paste text. Poorly written Amazon descriptions must be improved.
-      5.  **No Prices:** You MUST NOT include any specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
-      6.  **Hero Image:** For the "heroImageUrl", select the most visually appealing product image URL from the provided Product Information. This image will be the main banner for the post.
-      7.  **SEO Tags:** For the "tags", generate an array of 5-7 relevant SEO keywords for the post (e.g., ["product type", "brand name", "comparison", "review"]).
-      8.  **HTML Content & Styling:** The "content" value must be a string of clean, well-structured HTML. Use inline CSS styles for formatting like borders, padding, and background colors to ensure the post looks good when pasted into external platforms. Do not use <style> tags or CSS classes. When using blockquotes, style them with a left border and padding using inline CSS (e.g., style="border-left: 4px solid #cccccc; padding-left: 1rem; margin-left: 1rem; font-style: italic;").
-      9.  **In-Content Images:** For each product discussed in the HTML, you MUST embed its specific image BEFORE its description using an \`<img>\` tag. The image should have a descriptive alt text.
-      10. **Comparison Format:** You MUST generate a comparison section using the format specified in the {{COMPARISON_FORMAT_INSTRUCTION}} section below.
-      11. **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, you may occasionally use the text: "{{CTA_TEXT}}". Do not just say "click here".
-      12. **Tone:** ${toneInstruction}
-      13. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">{{FOOTER_TEXT}}</p>\`.
-      14. **Follow Instructions:** Adhere to all instructions from the 'Global Settings' and 'Specific Instructions' sections.
+      1.  **JSON Output:** Your entire response must be a single, valid JSON object with four keys: "title" (string), "heroImageUrl" (string), "content" (string), and "tags" (array of strings).
+      2.  **Title Generation:** Generate a new, compelling, SEO-friendly title for the blog post that reflects a comparison.
+      3.  **Content Quality:** You MUST rewrite and summarize the provided 'Raw Description/Details'. Do NOT simply copy-paste text. Poorly written Amazon descriptions must be improved.
+      4.  **No Prices:** Do NOT include specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
+      5.  **Hero Image:** For "heroImageUrl", select the most visually appealing product image URL from the provided Product Information.
+      6.  **SEO Tags:** For "tags", generate an array of 5-7 relevant SEO keywords for the post.
+      7.  **HTML Content & Styling:** The "content" value must be a string of clean, well-structured HTML. Use inline CSS for styling to ensure compatibility. When using blockquotes, style them with a left border and padding (e.g., style="border-left: 4px solid #cccccc; padding-left: 1rem; margin-left: 1rem; font-style: italic;").
+      8.  **In-Content Images:** For each product discussed, embed its specific image BEFORE its description using an \`<img>\` tag.
+      9.  **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, use the text: "{{CTA_TEXT}}".
+      10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">{{FOOTER_TEXT}}</p>\`.
+      11. **Follow ALL Instructions:** Adhere to all instructions for each section.
 
       ---
+      **CONTENT STRUCTURE & INSTRUCTIONS**
+
       **Core Task:**
       {{USER_PROVIDED_TEMPLATE_TASK}}
+      
+      The blog post's final HTML content must follow this structure:
 
-      The blog post structure should be:
-      1. An introduction that grabs the reader's attention.
-      2. A detailed section for each product, including its image and a well-written description.
-      {{COMPARISON_FORMAT_INSTRUCTION}}
-      3. A final "Verdict" or "Recommendation" section summarizing which product is best for different types of users.
+      {{PLACEMENT_BEGINNING}}
+
+      <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff;">Introduction</h2>
+      <!-- Generate the introduction here based on the 'Introduction Instructions' below. -->
+
+      <!-- Generate a detailed section for each product based on the 'Product Description Instructions' below. -->
+
+      {{PLACEMENT_MIDDLE}}
+
+      <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">The Verdict</h2>
+      <!-- Generate a final "Verdict" or "Recommendation" section summarizing which product is best for different types of users. -->
+
+      {{PLACEMENT_END}}
+      
       ---
+      **SECTION-SPECIFIC INSTRUCTIONS**
+
+      **Introduction Instructions:**
+      - Style: {{INTRODUCTION_STYLE}}
+      - Tone: {{INTRODUCTION_TONE}}
+
+      **Product Description Instructions:**
+      - For each product, create a separate section with its own \`<h3>\` heading.
+      - Style: {{DESCRIPTION_STYLE}}
+      - Tone: {{DESCRIPTION_TONE}}
 
       **Global Settings (General Writing Style):**
       {{GENERAL_SETTINGS}}
@@ -186,12 +258,17 @@ The table MUST be styled with inline CSS. Use \`<table style="width: 100%; borde
       {{PRODUCT_DETAILS}}
     `;
     
-    // If a user template is provided, use it. Otherwise, use the default task.
     const task = templatePrompt || `Write a comprehensive and engaging blog post comparing the products provided.`;
     
-    let finalPrompt = defaultPromptTemplate
+    let finalPrompt = mainPrompt
         .replace('{{USER_PROVIDED_TEMPLATE_TASK}}', task)
-        .replace(/\{\{COMPARISON_FORMAT_INSTRUCTION\}\}/g, comparisonInstruction)
+        .replace('{{PLACEMENT_BEGINNING}}', placement.beginning)
+        .replace('{{PLACEMENT_MIDDLE}}', placement.middle)
+        .replace('{{PLACEMENT_END}}', placement.end)
+        .replace('{{INTRODUCTION_STYLE}}', introductionStyle)
+        .replace('{{INTRODUCTION_TONE}}', introductionTone)
+        .replace('{{DESCRIPTION_STYLE}}', descriptionStyle)
+        .replace('{{DESCRIPTION_TONE}}', descriptionTone)
         .replace('{{PRODUCT_DETAILS}}', productDetails)
         .replace('{{GENERAL_SETTINGS}}', settings.generalInstructions || 'No general instructions provided.')
         .replace('{{SPECIFIC_INSTRUCTIONS}}', instructions || 'No specific instructions provided.')

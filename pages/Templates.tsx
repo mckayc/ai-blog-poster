@@ -1,17 +1,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Template } from '../types';
-import * as db from '../services/dbService';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import Textarea from '../components/common/Textarea';
+import { Template } from '../src/types';
+import * as db from '../src/services/dbService';
+import Card from '../src/components/common/Card';
+import Button from '../src/components/common/Button';
+import Input from '../src/components/common/Input';
+import Textarea from '../src/components/common/Textarea';
 
 const TemplateModal: React.FC<{
   template: Partial<Template> | null;
   onSave: (template: Omit<Template, 'id'> & { id?: string }) => void;
   onClose: () => void;
-}> = ({ template, onSave, onClose }) => {
+  isSaving: boolean;
+}> = ({ template, onSave, onClose, isSaving }) => {
   const [name, setName] = useState(template?.name || '');
   const [prompt, setPrompt] = useState(template?.prompt || '');
 
@@ -46,6 +47,7 @@ const TemplateModal: React.FC<{
           <div className="text-xs text-slate-400 bg-slate-700 p-2 rounded-md">
             <p className="font-bold">Available Placeholders:</p>
             <ul className="list-disc list-inside ml-2">
+                <li><code className="font-mono">{`{{USER_PROVIDED_TEMPLATE_TASK}}`}</code> - This is where your prompt will be injected.</li>
                 <li><code className="font-mono">{`{{PRODUCT_DETAILS}}`}</code> - Replaced by the list of products.</li>
                 <li><code className="font-mono">{`{{GENERAL_SETTINGS}}`}</code> - Replaced by your global AI settings from the dashboard.</li>
                 <li><code className="font-mono">{`{{SPECIFIC_INSTRUCTIONS}}`}</code> - Replaced by the instructions you provide right before generating.</li>
@@ -54,7 +56,9 @@ const TemplateModal: React.FC<{
         </div>
         <div className="mt-6 flex justify-end space-x-3">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!name || !prompt}>Save Template</Button>
+          <Button onClick={handleSave} disabled={!name || !prompt || isSaving}>
+            {isSaving ? 'Saving...' : 'Save Template'}
+          </Button>
         </div>
       </Card>
     </div>
@@ -65,30 +69,45 @@ const Templates: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<Partial<Template> | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadTemplates = useCallback(() => {
-    setTemplates(db.getTemplates());
+    setLoading(true);
+    db.getTemplates()
+      .then(setTemplates)
+      .catch(e => console.error("Failed to load templates", e))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
 
-  const handleSave = (templateData: Omit<Template, 'id'> & { id?: string }) => {
-    if (templateData.id) {
-      db.updateTemplate(templateData as Template);
-    } else {
-      db.saveTemplate({ ...templateData, id: crypto.randomUUID() });
+  const handleSave = async (templateData: Omit<Template, 'id'> & { id?: string }) => {
+    setIsSaving(true);
+    try {
+        await db.saveTemplate(templateData);
+        setEditingTemplate(null);
+        loadTemplates();
+    } catch(e) {
+        alert("Failed to save template. See console for details.");
+        console.error(e);
+    } finally {
+        setIsSaving(false);
     }
-    setEditingTemplate(null);
-    loadTemplates();
   };
   
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if(deletingTemplate) {
-        db.deleteTemplate(deletingTemplate.id);
-        setDeletingTemplate(null);
-        loadTemplates();
+        try {
+            await db.deleteTemplate(deletingTemplate.id);
+            setDeletingTemplate(null);
+            loadTemplates();
+        } catch(e) {
+            alert("Failed to delete template. See console for details.");
+            console.error(e);
+        }
     }
   };
 
@@ -98,8 +117,10 @@ const Templates: React.FC = () => {
         <h1 className="text-3xl font-bold text-white">Manage Templates</h1>
         <Button onClick={() => setEditingTemplate({})}>Create New Template</Button>
       </div>
-
-      {templates.length === 0 ? (
+      
+      {loading ? (
+        <Card className="text-center"><p className="text-slate-400">Loading templates...</p></Card>
+      ) : templates.length === 0 ? (
         <Card className="text-center">
           <p className="text-slate-400">You haven't created any templates yet. Create one to get started!</p>
         </Card>
@@ -122,6 +143,7 @@ const Templates: React.FC = () => {
             template={editingTemplate}
             onSave={handleSave}
             onClose={() => setEditingTemplate(null)}
+            isSaving={isSaving}
         />
       )}
 

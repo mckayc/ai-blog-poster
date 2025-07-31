@@ -42,7 +42,7 @@ const EditPost: React.FC = () => {
     const isEditing = !!postId;
     const editorRef = useRef<any>(null);
 
-    const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '', tags: [] });
+    const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '', tags: [], asins: '' });
     const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'generating_tags' | 'idle'>('loading');
     const [generationDetails, setGenerationDetails] = useState('');
     const [generationError, setGenerationError] = useState('');
@@ -115,6 +115,7 @@ const EditPost: React.FC = () => {
                     const initialPostState = {
                         ...fetchedPost,
                         tags: fetchedPost.tags || [],
+                        asins: fetchedPost.asins || '',
                     };
                     setPost(initialPostState);
 
@@ -144,7 +145,7 @@ const EditPost: React.FC = () => {
                     navigate('/posts');
                 });
         } else {
-            setPost({ title: '', content: '<p><br></p>', name: 'New Draft', products: [], tags: [] });
+            setPost({ title: '', content: '<p><br></p>', name: 'New Draft', products: [], tags: [], asins: '' });
             setStatus('idle');
         }
     }, [postId, isEditing, navigate, location.search, generateStream]);
@@ -160,6 +161,10 @@ const EditPost: React.FC = () => {
     const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
         setPost(p => ({ ...p, tags }));
+    };
+
+    const handleAsinsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setPost(p => ({ ...p, asins: e.target.value }));
     };
 
     const handleGenerateTags = async () => {
@@ -269,13 +274,22 @@ const EditPost: React.FC = () => {
                     className="!text-xl !py-3 font-bold"
                     disabled={isBusy}
                 />
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-4">
                     <div className="flex-grow">
                         <Input 
                             label="Tags (comma-separated)"
                             value={post.tags?.join(', ') || ''}
                             onChange={handleTagsChange}
                             placeholder="e.g., tech, review, comparison"
+                            disabled={isBusy}
+                        />
+                    </div>
+                    <div className="flex-grow">
+                        <Input
+                            label="Amazon ASINs (comma-separated)"
+                            value={post.asins || ''}
+                            onChange={handleAsinsChange}
+                            placeholder="e.g., B08HMWCCL6, B09G9432S4"
                             disabled={isBusy}
                         />
                     </div>

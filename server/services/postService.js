@@ -49,12 +49,13 @@ const parsePost = (post) => {
         ...post,
         products: products,
         tags: tags,
+        asins: post.asins || '',
     };
 }
 
 export const getAllPosts = async () => {
     const db = await getDb();
-    let posts = await db.all('SELECT id, name, title, createdAt, products, tags, heroImageUrl FROM posts ORDER BY createdAt DESC');
+    let posts = await db.all('SELECT id, name, title, createdAt, products, tags, heroImageUrl, asins FROM posts ORDER BY createdAt DESC');
     return posts.map(parsePost);
 };
 
@@ -65,13 +66,13 @@ export const getPostById = async (id) => {
 };
 
 export const saveOrUpdatePost = async (postData) => {
-    const { id, name, title, content, products, createdAt, heroImageUrl, tags } = postData;
+    const { id, name, title, content, products, createdAt, heroImageUrl, tags, asins } = postData;
     const db = await getDb();
 
     if (id) { // Update
         await db.run(
-            'UPDATE posts SET name = ?, title = ?, content = ?, products = ?, createdAt = ?, heroImageUrl = ?, tags = ? WHERE id = ?',
-            name, title, content, JSON.stringify(products || []), createdAt, heroImageUrl, JSON.stringify(tags || []), id
+            'UPDATE posts SET name = ?, title = ?, content = ?, products = ?, createdAt = ?, heroImageUrl = ?, tags = ?, asins = ? WHERE id = ?',
+            name, title, content, JSON.stringify(products || []), createdAt, heroImageUrl, JSON.stringify(tags || []), asins || '', id
         );
         return { success: true, id: id };
     } else { // Create a new post
@@ -84,10 +85,11 @@ export const saveOrUpdatePost = async (postData) => {
             createdAt: new Date().toISOString(),
             heroImageUrl: heroImageUrl || '',
             tags: JSON.stringify(tags || []),
+            asins: asins || '',
         };
         await db.run(
-            'INSERT INTO posts (id, name, title, content, products, createdAt, heroImageUrl, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            newPost.id, newPost.name, newPost.title, newPost.content, newPost.products, newPost.createdAt, newPost.heroImageUrl, newPost.tags
+            'INSERT INTO posts (id, name, title, content, products, createdAt, heroImageUrl, tags, asins) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            newPost.id, newPost.name, newPost.title, newPost.content, newPost.products, newPost.createdAt, newPost.heroImageUrl, newPost.tags, newPost.asins
         );
         return { success: true, id: newPost.id };
     }
