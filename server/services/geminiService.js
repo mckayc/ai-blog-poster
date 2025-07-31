@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { getDb } from '../database.js';
 
@@ -170,12 +171,12 @@ export const generateBlogPost = async (options) => {
         <div style="display:flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; padding: 16px; background-color: #f9fafb; border-radius: 8px;">
             ${products.map(p => `
             <div style="text-align: center; max-width: 200px;">
-                <a href="${p.affiliateLink || '#'}" style="text-decoration: none;">
+                <a href="${p.affiliateLink || '#'}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
                     <img src="${p.imageUrl}" alt="${p.name}" style="width: 200px; height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #e5e7eb;" />
                 </a>
                 <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: #6b7280;">${p.brand || ''}</p>
                 <h4 style="margin: 4px 0 0 0; font-size: 1rem; color: #1f2937;">
-                    <a href="${p.affiliateLink || '#'}" style="color: #1f2937; text-decoration: none;">${p.name}</a>
+                    <a href="${p.affiliateLink || '#'}" target="_blank" rel="noopener noreferrer" style="color: #1f2937; text-decoration: none;">${p.name}</a>
                 </h4>
             </div>
             `).join('')}
@@ -209,7 +210,7 @@ export const generateBlogPost = async (options) => {
       6.  **SEO Tags:** For "tags", generate an array of 5-7 relevant SEO keywords for the post.
       7.  **HTML Content & Styling (LIGHT THEME):** The "content" value must be a string of clean, well-structured HTML. Use inline CSS for styling to ensure compatibility with a standard light-background editor (like WordPress). Use dark text colors (e.g., #1f2937, #374151) and standard blue links (e.g., #2563eb).
       8.  **In-Content Images:** For each product discussed, embed its specific image BEFORE its description using an \`<img>\` tag.
-      9.  **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, use the text: "{{CTA_TEXT}}".
+      9.  **Affiliate Links:** Integrate affiliate links naturally. ALL links (\`<a>\` tags) MUST have \`target="_blank" rel="noopener noreferrer"\` to open in a new tab. The primary link text should be the product's title (e.g., <a href="..." target="_blank" rel="noopener noreferrer">Sony WH-1000XM5</a>). For variety, use the text: "{{CTA_TEXT}}".
       10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #6b7280; text-align: center;">{{FOOTER_TEXT}}</p>\`.
       11. **Follow ALL Instructions:** Adhere to all instructions for each section.
 
