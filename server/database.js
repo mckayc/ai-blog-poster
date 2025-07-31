@@ -36,6 +36,23 @@ if (!fs.existsSync(DB_PATH)) {
 
 let db;
 
+const runMigrations = async (dbInstance) => {
+    console.log('[DB LOG] Checking database schema for migrations...');
+    try {
+        const postsColumns = await dbInstance.all('PRAGMA table_info(posts)');
+        if (!postsColumns.some(c => c.name === 'asins')) {
+            console.log('[DB LOG] Missing "asins" column in "posts" table. Applying migration...');
+            await dbInstance.exec('ALTER TABLE posts ADD COLUMN asins TEXT');
+            console.log('[DB LOG] Successfully added "asins" column.');
+        } else {
+            console.log('[DB LOG] "asins" column already exists. No migration needed.');
+        }
+    } catch (error) {
+        console.error('[DB LOG] Error running migrations:', error);
+        throw error; // Propagate error to stop server startup if migration fails
+    }
+};
+
 const seedInitialTemplates = async (dbInstance) => {
     const defaultTemplates = [
         { name: 'Versus (Standard)', prompt: 'Write a comprehensive blog post comparing Product 1 and Product 2. Cover their key features, performance, design, and value. Conclude with a recommendation for different types of users.' },
@@ -137,6 +154,9 @@ export const getDb = async () => {
       
     console.log('[DB LOG] All tables checked/created successfully.');
     
+    // Run migrations before seeding
+    await runMigrations(db);
+
     // Seed templates if necessary
     await seedInitialTemplates(db);
 

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product } from '../types';
 import * as db from '../services/dbService';
 import Card from '../components/common/Card';
@@ -103,6 +104,7 @@ const ManageProducts: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   const loadProducts = useCallback(() => {
     db.getProducts({ search: searchTerm, category: selectedCategory })
@@ -175,6 +177,12 @@ const ManageProducts: React.FC = () => {
     }
   };
 
+  const handleCreatePost = () => {
+    if (selectedProducts.length > 0) {
+      navigate(`/generator?productIds=${selectedProducts.join(',')}`);
+    }
+  };
+
   const formatPrice = (price: string) => {
       if (!price) return null;
       const trimmed = price.trim();
@@ -192,9 +200,14 @@ const ManageProducts: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
             {selectedProducts.length > 0 && (
+              <>
+                <Button onClick={handleCreatePost}>
+                    Create Post ({selectedProducts.length})
+                </Button>
                 <Button variant="danger" onClick={handleBulkDelete}>
                     Delete Selected ({selectedProducts.length})
                 </Button>
+              </>
             )}
             <Button onClick={() => setEditingProduct({})}>Add New Product</Button>
         </div>

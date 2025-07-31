@@ -84,6 +84,10 @@ export const deleteTemplate = (templateId: string): Promise<any> => {
 };
 
 // --- Product Management ---
+export const getProduct = (productId: string): Promise<Product> => {
+    return fetch(`/api/products/${productId}`).then(handleResponse);
+};
+
 export const getProducts = (filters: {search?: string, category?: string}): Promise<Product[]> => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);

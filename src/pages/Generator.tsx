@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Product, Template } from '../types';
 import * as db from '../services/dbService';
 import Card from '../components/common/Card';
@@ -14,24 +14,45 @@ const ProductSelectionModal: React.FC<{
 }> = ({ onSelect, onClose }) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [categories, setCategories] = useState<string[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
 
     useEffect(() => {
-        db.getProducts({ search: searchTerm }).then(setProducts).catch(console.error);
-    }, [searchTerm]);
+        db.getProducts({ search: searchTerm, category: selectedCategory }).then(setProducts).catch(console.error);
+    }, [searchTerm, selectedCategory]);
+
+    useEffect(() => {
+        db.getUniqueCategories().then(setCategories).catch(console.error);
+    }, []);
+
+    const formatPrice = (price: string) => {
+        if (!price) return null;
+        const trimmed = price.trim();
+        if (trimmed.startsWith('$')) return trimmed;
+        if (/^[\d,.-]+$/.test(trimmed)) return `$${trimmed}`;
+        return trimmed;
+    }
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
                 <h2 className="text-2xl font-bold text-white mb-4">Select a Product from Library</h2>
-                <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search products..." className="mb-4" />
+                <div className="flex gap-4 mb-4">
+                    <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search products..." className="flex-grow" />
+                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-md py-2 px-3 text-white focus:ring-indigo-500">
+                        <option value="">All Categories</option>
+                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
                 <div className="overflow-y-auto space-y-2 flex-grow">
                     {products.map(p => (
                         <div key={p.id} onClick={() => onSelect(p)} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-700 cursor-pointer">
                             <img src={p.imageUrl} alt={p.name} className="w-12 h-12 object-cover rounded-md flex-shrink-0 bg-slate-700" />
-                            <div>
+                            <div className="flex-grow">
                                 <p className="font-semibold">{p.name}</p>
                                 <p className="text-sm text-slate-400">{p.brand}</p>
                             </div>
+                            {p.price && <p className="font-semibold text-emerald-400 flex-shrink-0">{formatPrice(p.price)}</p>}
                         </div>
                     ))}
                 </div>
@@ -99,6 +120,7 @@ const GenerationFeatureControl: React.FC<{
 
 const Generator: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
@@ -120,6 +142,22 @@ const Generator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [showProductModal, setShowProductModal] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const productIds = params.get('productIds');
+    if (productIds) {
+      const ids = productIds.split(',');
+      Promise.all(ids.map(id => db.getProduct(id)))
+        .then(products => setSelectedProducts(products))
+        .catch(err => {
+          console.error("Failed to load products from URL", err);
+          setError("Could not load some products from the library.");
+        });
+      // Clean up the URL
+      navigate('/generator', { replace: true });
+    }
+  }, [location, navigate]);
 
 
   useEffect(() => {
@@ -172,6 +210,7 @@ const Generator: React.FC = () => {
         content: '<p>The AI is warming up...</p>',
         products: selectedProducts,
         tags: [],
+        asins: selectedProducts.map(p => p.productUrl.match(/dp\/(\w+)/)?.[1]).filter(Boolean).join(','),
       };
       const response = await db.savePost(newPostData);
       
