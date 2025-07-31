@@ -20,11 +20,23 @@ export const testApiKey = async (): Promise<boolean> => {
   }
 };
 
-export const generatePostStream = async (products: Product[], instructions: string, templateId: string | null, includeComparisonCards: boolean): Promise<Response> => {
+export interface GenerationOptions {
+    products: Product[];
+    instructions: string;
+    templateId: string | null;
+    introductionStyle: string;
+    introductionTone: string;
+    descriptionStyle: string;
+    descriptionTone: string;
+    comparisonCards: { enabled: boolean; placement: Record<string, boolean> };
+    photoComparison: { enabled: boolean; placement: Record<string, boolean> };
+}
+
+export const generatePostStream = async (options: GenerationOptions): Promise<Response> => {
     const response = await fetch('/api/gemini/generate-post-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, instructions, templateId, includeComparisonCards })
+        body: JSON.stringify(options)
     });
 
     if (!response.ok) {
@@ -46,5 +58,13 @@ export const generateTitleIdea = async (products: Product[]): Promise<string[]> 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ products })
+    }).then(handleResponse);
+};
+
+export const generateTags = async (title: string, content: string): Promise<string[]> => {
+    return fetch('/api/gemini/generate-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content })
     }).then(handleResponse);
 };

@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, Template } from '../types.ts';
-import * as db from '../services/dbService.ts';
-import Card from '../components/common/Card.tsx';
-import Input from '../components/common/Input.tsx';
-import Textarea from '../components/common/Textarea.tsx';
-import Button from '../components/common/Button.tsx';
+import { Product, Template } from './../types';
+import * as db from './../services/dbService';
+import Card from './../components/common/Card';
+import Input from './../components/common/Input';
+import Textarea from './../components/common/Textarea';
+import Button from './../components/common/Button';
 
 const ProductSelectionModal: React.FC<{
     onSelect: (product: Product) => void;
@@ -43,6 +43,59 @@ const ProductSelectionModal: React.FC<{
     );
 };
 
+const toneOptions = ['Friendly', 'Professional', 'Humorous', 'Technical', 'Casual', 'Witty', 'Authoritative', 'Excited', 'Direct', 'Storytelling'];
+const introStyleOptions = ['Full', 'Short', 'Basic', 'None'];
+const descriptionStyleOptions = ['Detailed Paragraphs', 'Concise Summary', 'Bullet Points'];
+
+const GenerationFeatureControl: React.FC<{
+    title: string;
+    featureState: { enabled: boolean; placement: Record<string, boolean> };
+    onFeatureChange: (newState: { enabled: boolean; placement: Record<string, boolean> }) => void;
+}> = ({ title, featureState, onFeatureChange }) => {
+    const handlePlacementChange = (position: 'beginning' | 'middle' | 'end') => {
+        onFeatureChange({
+            ...featureState,
+            placement: {
+                ...featureState.placement,
+                [position]: !featureState.placement[position]
+            }
+        });
+    };
+
+    return (
+        <div className="bg-slate-700/50 p-3 rounded-lg">
+            <div className="flex items-center space-x-3">
+                <input
+                    type="checkbox"
+                    id={`toggle-${title}`}
+                    checked={featureState.enabled}
+                    onChange={(e) => onFeatureChange({ ...featureState, enabled: e.target.checked })}
+                    className="h-5 w-5 rounded border-slate-500 bg-slate-800 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-800"
+                />
+                <label htmlFor={`toggle-${title}`} className="text-slate-200 font-semibold select-none">
+                    {title}
+                </label>
+            </div>
+            {featureState.enabled && (
+                <div className="mt-3 pl-8 flex items-center space-x-4">
+                    <span className="text-sm text-slate-400">Place at:</span>
+                    {['beginning', 'middle', 'end'].map(pos => (
+                         <div key={pos} className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id={`placement-${title}-${pos}`}
+                                checked={!!featureState.placement[pos]}
+                                onChange={() => handlePlacementChange(pos as any)}
+                                className="h-4 w-4 rounded border-slate-500 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <label htmlFor={`placement-${title}-${pos}`} className="ml-2 text-sm text-slate-300 capitalize select-none">{pos}</label>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Generator: React.FC = () => {
   const navigate = useNavigate();
@@ -50,7 +103,15 @@ const Generator: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
   const [instructions, setInstructions] = useState('');
-  const [includeComparisonCards, setIncludeComparisonCards] = useState(true);
+  
+  // New state for advanced controls
+  const [introductionStyle, setIntroductionStyle] = useState('Full');
+  const [introductionTone, setIntroductionTone] = useState('Friendly');
+  const [descriptionStyle, setDescriptionStyle] = useState('Detailed Paragraphs');
+  const [descriptionTone, setDescriptionTone] = useState('Professional');
+  
+  const [comparisonCards, setComparisonCards] = useState<{ enabled: boolean; placement: Record<string, boolean> }>({ enabled: true, placement: { middle: true } });
+  const [photoComparison, setPhotoComparison] = useState<{ enabled: boolean; placement: Record<string, boolean> }>({ enabled: false, placement: { beginning: true } });
   
   const [newProductUrl, setNewProductUrl] = useState('');
   const [isFetching, setIsFetching] = useState(false);
@@ -119,7 +180,14 @@ const Generator: React.FC = () => {
         params.set('new', 'true');
         params.set('instructions', instructions);
         if(selectedTemplateId) params.set('templateId', selectedTemplateId);
-        params.set('includeComparisonCards', includeComparisonCards.toString());
+        
+        // Add new advanced options to params
+        params.set('introductionStyle', introductionStyle);
+        params.set('introductionTone', introductionTone);
+        params.set('descriptionStyle', descriptionStyle);
+        params.set('descriptionTone', descriptionTone);
+        params.set('comparisonCards', JSON.stringify(comparisonCards));
+        params.set('photoComparison', JSON.stringify(photoComparison));
 
         navigate(`/edit/${response.id}?${params.toString()}`);
       } else {
@@ -131,6 +199,20 @@ const Generator: React.FC = () => {
       setIsLoading(false);
     }
   };
+  
+  const Dropdown = ({ label, value, onChange, options }) => (
+    <div>
+        <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+        <select value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-md py-2 px-3 text-white focus:ring-indigo-500">
+            {options.map(opt => {
+                if (typeof opt === 'object' && opt !== null) {
+                    return <option key={opt.value} value={opt.value}>{opt.name}</option>;
+                }
+                return <option key={opt} value={opt}>{opt}</option>;
+            })}
+        </select>
+    </div>
+  );
 
   return (
     <div>
@@ -166,8 +248,22 @@ const Generator: React.FC = () => {
                     </div>
                 )}
             </Card>
-             <Card>
-                <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+            <Card>
+                <h2 className="text-xl font-semibold mb-4">Introduction</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Dropdown label="Style" value={introductionStyle} onChange={setIntroductionStyle} options={introStyleOptions} />
+                    <Dropdown label="Tone" value={introductionTone} onChange={setIntroductionTone} options={toneOptions} />
+                </div>
+            </Card>
+            <Card>
+                <h2 className="text-xl font-semibold mb-4">Product Description</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Dropdown label="Style" value={descriptionStyle} onChange={setDescriptionStyle} options={descriptionStyleOptions} />
+                    <Dropdown label="Tone" value={descriptionTone} onChange={setDescriptionTone} options={toneOptions} />
+                </div>
+            </Card>
+            <Card>
+                <h2 className="text-xl font-semibold mb-4">Instructions & Template</h2>
                 <div className="space-y-4">
                     <Textarea
                         label="Specific instructions for this post"
@@ -176,22 +272,7 @@ const Generator: React.FC = () => {
                         rows={4}
                         placeholder="e.g., 'Focus on battery life and camera quality.' or 'Compare these for a beginner photographer.'"
                     />
-                    <div>
-                        <label htmlFor="template-select" className="block text-sm font-medium text-slate-300 mb-1">
-                            Select a Template
-                        </label>
-                        <select
-                            id="template-select"
-                            className="w-full bg-slate-700 border border-slate-600 rounded-md py-2 px-3 text-white focus:ring-indigo-500"
-                            value={selectedTemplateId}
-                            onChange={e => setSelectedTemplateId(e.target.value)}
-                        >
-                            <option value="default">Default Prompt</option>
-                            {templates.map(template => (
-                                <option key={template.id} value={template.id}>{template.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <Dropdown label="Prompt Template" value={selectedTemplateId} onChange={setSelectedTemplateId} options={[{ value: 'default', name: 'Default Prompt' }, ...templates.map(t => ({ value: t.id, name: t.name }))]} />
                 </div>
             </Card>
         </div>
@@ -219,19 +300,9 @@ const Generator: React.FC = () => {
             <Card>
                 <h2 className="text-xl font-semibold mb-4">Generate</h2>
                 <div className="space-y-3">
-                     <div className="flex items-center space-x-3 bg-slate-700/50 p-3 rounded-lg">
-                        <input
-                            type="checkbox"
-                            id="comparison-cards-toggle"
-                            checked={includeComparisonCards}
-                            onChange={(e) => setIncludeComparisonCards(e.target.checked)}
-                            className="h-5 w-5 rounded border-slate-500 bg-slate-800 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-800"
-                        />
-                        <label htmlFor="comparison-cards-toggle" className="text-slate-300 select-none">
-                           Include AI Comparison Cards
-                        </label>
-                    </div>
-                    <p className="text-slate-400 mb-4">Once you're ready, click the button below to create your post.</p>
+                    <GenerationFeatureControl title="AI Comparison Cards" featureState={comparisonCards} onFeatureChange={setComparisonCards} />
+                    <GenerationFeatureControl title="Photo Comparison" featureState={photoComparison} onFeatureChange={setPhotoComparison} />
+                    <p className="text-slate-400 my-4">Once you're ready, click the button below to create your post.</p>
                     <Button onClick={handleGenerate} disabled={isLoading || selectedProducts.length === 0} className="w-full">
                         {isLoading ? 'Creating Post...' : 'Generate Blog Post'}
                     </Button>

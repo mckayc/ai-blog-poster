@@ -42,19 +42,19 @@ const EditPost: React.FC = () => {
     const isEditing = !!postId;
     const editorRef = useRef<any>(null);
 
-    const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '' });
-    const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'idle'>('loading');
+    const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '', tags: [] });
+    const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'generating_tags' | 'idle'>('loading');
     const [generationDetails, setGenerationDetails] = useState('');
     const [generationError, setGenerationError] = useState('');
 
-     const generateStream = useCallback(async (products: Product[], instructions: string, templateId: string, includeComparisonCards: boolean) => {
-        if (!post.id) return;
+     const generateStream = useCallback(async (options: Omit<gemini.GenerationOptions, 'products'>) => {
+        if (!post.id || !post.products) return;
         
         let accumulatedContent = '';
         let finalData: Partial<BlogPost> = {};
 
         try {
-            const response = await gemini.generatePostStream(products, instructions, templateId, includeComparisonCards);
+            const response = await gemini.generatePostStream({ ...options, products: post.products });
             
             if (!response.body) throw new Error("Response body is missing");
 
@@ -66,15 +66,12 @@ const EditPost: React.FC = () => {
 
                 accumulatedContent += value;
 
-                // Try to parse the accumulated content so far
                 try {
-                    // Find the last complete JSON object
                     const lastBraceIndex = accumulatedContent.lastIndexOf('}');
                     if (lastBraceIndex > -1) {
                          const potentialJson = accumulatedContent.substring(0, lastBraceIndex + 1);
                          const parsed = JSON.parse(potentialJson);
                          
-                         // Update UI with partial data
                          setPost(p => ({
                              ...p,
                              title: parsed.title || p.title,
@@ -82,16 +79,14 @@ const EditPost: React.FC = () => {
                              heroImageUrl: parsed.heroImageUrl || p.heroImageUrl,
                              tags: parsed.tags || p.tags
                          }));
-                         finalData = parsed; // keep track of the last good parse
+                         finalData = parsed;
                     }
                 } catch (e) {
                     // This is expected as the JSON streams in chunks.
-                    // We just continue to the next chunk.
                 }
                  setGenerationDetails(`Received ${accumulatedContent.length} bytes...`);
             }
 
-            // Once streaming is complete, save the final complete data.
             setStatus('saving');
             setGenerationDetails('Finalizing and saving post...');
             const finalPost = { ...post, ...finalData, id: post.id };
@@ -105,7 +100,7 @@ const EditPost: React.FC = () => {
             setStatus('idle');
             setGenerationDetails('');
         }
-    }, [post.id]);
+    }, [post.id, post.products]);
 
 
     useEffect(() => {
@@ -113,47 +108,42 @@ const EditPost: React.FC = () => {
         const isNewPost = urlParams.get('new') === 'true';
 
         if (isEditing) {
-            if (isNewPost) {
-                 // Fetch the skeleton post, then generate
-                setStatus('loading');
-                db.getPost(postId!)
-                    .then(fetchedPost => {
-                        if (!fetchedPost) throw new Error(`Post with ID ${postId} not found.`);
-                        setPost(fetchedPost);
+            db.getPost(postId!)
+                .then(fetchedPost => {
+                    if (!fetchedPost) throw new Error(`Post with ID ${postId} not found.`);
+                    
+                    const initialPostState = {
+                        ...fetchedPost,
+                        tags: fetchedPost.tags || [],
+                    };
+                    setPost(initialPostState);
+
+                    if (isNewPost) {
                         setStatus('generating');
                         setGenerationDetails('Initializing AI stream...');
                         
-                        const instructions = urlParams.get('instructions') || '';
-                        const templateId = urlParams.get('templateId') || 'default';
-                        const includeComparisonCards = urlParams.get('includeComparisonCards') === 'true';
+                        const generationOptions = {
+                            instructions: urlParams.get('instructions') || '',
+                            templateId: urlParams.get('templateId') || 'default',
+                            introductionStyle: urlParams.get('introductionStyle') || 'Full',
+                            introductionTone: urlParams.get('introductionTone') || 'Friendly',
+                            descriptionStyle: urlParams.get('descriptionStyle') || 'Detailed Paragraphs',
+                            descriptionTone: urlParams.get('descriptionTone') || 'Professional',
+                            comparisonCards: JSON.parse(urlParams.get('comparisonCards') || '{"enabled":true,"placement":{"middle":true}}'),
+                            photoComparison: JSON.parse(urlParams.get('photoComparison') || '{"enabled":false,"placement":{"beginning":true}}'),
+                        };
 
-                        generateStream(fetchedPost.products || [], instructions, templateId, includeComparisonCards);
-                    })
-                    .catch(err => {
-                        console.error("Failed to fetch post for generation:", err);
-                        alert("Could not load the post. It may have been deleted. Redirecting to posts list.");
-                        navigate('/posts');
-                    });
-            } else {
-                 // Just load the post for normal editing
-                setStatus('loading');
-                db.getPost(postId!)
-                    .then(fetchedPost => {
-                        if (fetchedPost) {
-                           setPost(fetchedPost);
-                           setStatus('idle');
-                        } else {
-                           throw new Error(`Post with ID ${postId} not found.`);
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Failed to fetch post:", err);
-                        alert("Could not load the post. It may have been deleted. Redirecting to posts list.");
-                        navigate('/posts');
-                    });
-            }
+                        generateStream(generationOptions);
+                    } else {
+                        setStatus('idle');
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to fetch post:", err);
+                    alert("Could not load the post. It may have been deleted. Redirecting to posts list.");
+                    navigate('/posts');
+                });
         } else {
-            // New post mode (blank editor)
             setPost({ title: '', content: '<p><br></p>', name: 'New Draft', products: [], tags: [] });
             setStatus('idle');
         }
@@ -165,6 +155,28 @@ const EditPost: React.FC = () => {
     
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPost(p => ({ ...p, title: e.target.value, name: e.target.value }));
+    };
+
+    const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
+        setPost(p => ({ ...p, tags }));
+    };
+
+    const handleGenerateTags = async () => {
+        if (!post.title || !post.content) {
+            alert("Please provide a title and content before generating tags.");
+            return;
+        }
+        setStatus('generating_tags');
+        try {
+            const newTags = await gemini.generateTags(post.title, post.content);
+            setPost(p => ({ ...p, tags: newTags }));
+        } catch(err) {
+            console.error(err);
+            alert("Failed to generate tags.");
+        } finally {
+            setStatus('idle');
+        }
     };
 
     const handleSave = async () => {
@@ -180,7 +192,7 @@ const EditPost: React.FC = () => {
                 }
                 const response = await db.savePost(post);
                  if (response.id) {
-                    navigate(`/edit/${response.id}`); // Navigate to the new post's edit page
+                    navigate(`/edit/${response.id}`);
                  }
             }
             alert("Changes saved successfully!");
@@ -257,7 +269,20 @@ const EditPost: React.FC = () => {
                     className="!text-xl !py-3 font-bold"
                     disabled={isBusy}
                 />
-
+                <div className="flex items-end gap-2">
+                    <div className="flex-grow">
+                        <Input 
+                            label="Tags (comma-separated)"
+                            value={post.tags?.join(', ') || ''}
+                            onChange={handleTagsChange}
+                            placeholder="e.g., tech, review, comparison"
+                            disabled={isBusy}
+                        />
+                    </div>
+                    <Button variant="secondary" onClick={handleGenerateTags} disabled={isBusy || status === 'generating_tags'}>
+                        {status === 'generating_tags' ? 'Generating...' : 'Generate Tags'}
+                    </Button>
+                </div>
                 <div>
                     <Editor
                         onInit={(evt, editor) => editorRef.current = editor}
@@ -277,8 +302,6 @@ const EditPost: React.FC = () => {
                             'alignright alignjustify | bullist numlist outdent indent | ' +
                             'link image media | table | code | removeformat | help',
                           content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:16px }',
-                          skin_url: '/tinymce/skins/ui/oxide-dark',
-                          content_css: '/tinymce/skins/content/dark/content.css',
                           image_advtab: true,
                           table_toolbar: "tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol",
                           autoresize_bottom_margin: 50,
