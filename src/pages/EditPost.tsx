@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Editor } from '@tinymce/tinymce-react';
@@ -47,7 +48,7 @@ const EditPost: React.FC = () => {
     const [generationDetails, setGenerationDetails] = useState('');
     const [generationError, setGenerationError] = useState('');
 
-    const generateAndSavePost = useCallback(async (postIdToUpdate: string, productsToUse: Product[], options: Omit<gemini.GenerationOptions, 'products'>) => {
+    const generateAndSavePost = useCallback(async (postIdToUpdate: string, productsToUse: Product[], options: Omit<gemini.GenerationOptions, 'products'>): Promise<boolean> => {
         setStatus('generating');
         setGenerationDetails('Generating post with AI... This may take a moment.');
         setGenerationError('');
@@ -65,13 +66,15 @@ const EditPost: React.FC = () => {
 
             await db.updatePost(postToSave);
             setPost(postToSave);
-            
-        } catch (err: any) {
-            console.error("Post generation failed:", err);
-            setGenerationError(err.message || "An unknown error occurred during generation.");
-        } finally {
             setStatus('idle');
             setGenerationDetails('');
+            return true;
+        } catch (err: any) {
+            console.error("Post generation failed:", err);
+            const errorMessage = `AI generation failed. This could be due to a network issue, an invalid API key, or a problem with the AI model's response. Please check the container logs for detailed errors.\n\nError: ${err.message || "An unknown error occurred during generation."}`;
+            setGenerationError(errorMessage);
+            // We leave status as 'generating' so the overlay with the error remains visible.
+            return false;
         }
     }, [post]);
 
@@ -97,8 +100,11 @@ const EditPost: React.FC = () => {
                             photoComparison: JSON.parse(params.get('photoComparison') || 'null') || { enabled: false },
                         };
                         
-                        await generateAndSavePost(fetchedPost.id, fetchedPost.products, generationOptions);
-                        navigate(`/edit/${postId}`, { replace: true });
+                        const success = await generateAndSavePost(fetchedPost.id, fetchedPost.products, generationOptions);
+                        if (success) {
+                            // On success, remove the query params from URL to prevent re-generation on refresh
+                            navigate(`/edit/${postId}`, { replace: true });
+                        }
                     }
                 } catch (error) {
                     console.error("Failed to fetch post", error);
@@ -116,8 +122,7 @@ const EditPost: React.FC = () => {
         };
 
         fetchPost();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [postId, navigate, location.search]);
+    }, [postId, navigate, location.search, generateAndSavePost, status]);
 
     const handleSave = async () => {
         if (!post) return;
@@ -210,14 +215,13 @@ const EditPost: React.FC = () => {
                             placeholder="Your Awesome Blog Post Title"
                         />
                          <Editor
-                            apiKey='your-tinymce-api-key'
+                            apiKey='no-api-key'
                             onInit={(evt, editor) => editorRef.current = editor}
                             key={post.id || 'new'}
                             initialValue={post.content}
                             init={{
-                                // Use the default light theme which is more robust for self-hosting.
-                                skin: 'oxide',
-                                content_css: 'default',
+                                skin_url: '/tinymce/skins/ui/oxide',
+                                content_css: '/tinymce/skins/content/default/content.min.css',
                                 height: '100%',
                                 menubar: false,
                                 plugins: 'autoresize advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount',
