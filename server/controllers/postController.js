@@ -5,7 +5,8 @@ import * as templateService from '../services/templateService.js';
 
 const handle_error = (res, error) => {
     console.error("--- CONTROLLER ERROR ---");
-    console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    // Using console.error is safer than JSON.stringify for complex error objects
+    console.error(error);
     const errorMessage = error.message || "An unknown server error occurred.";
     res.status(500).json({ message: `Server Error: ${errorMessage}\n\nPlease check the Docker container logs for the full technical details.` });
 };
@@ -28,7 +29,7 @@ export const getPostById = async (req, res) => {
         } else {
             res.status(404).json({ message: 'Post not found' });
         }
-    } catch (error) {
+    } catch (error) => {
         handle_error(res, error);
     }
 };
@@ -48,7 +49,7 @@ export const deletePostById = async (req, res) => {
         const { id } = req.params;
         const result = await postService.deletePostById(id);
         res.json(result);
-    } catch (error) {
+    } catch (error) => {
         handle_error(res, error);
     }
 };
@@ -61,7 +62,7 @@ export const deleteMultiplePosts = async (req, res) => {
         }
         const result = await postService.deleteMultiplePostsByIds(ids);
         res.json(result);
-    } catch (error) {
+    } catch (error) => {
         handle_error(res, error);
     }
 };

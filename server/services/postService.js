@@ -3,47 +3,35 @@ import { getDb } from '../database.js';
 
 const parsePost = (post) => {
     if (!post) return null;
-    console.log(`[POST PARSER] --- Parsing post ID: ${post.id} ---`);
 
     let products = [];
-    try {
-        console.log(`[POST PARSER] Raw products for ${post.id}:`, post.products);
-        console.log(`[POST PARSER] Type of products: ${typeof post.products}`);
-        if (post.products) {
+    if (post.products) {
+        try {
             const parsed = JSON.parse(post.products);
-            if (Array.isArray(parsed)) {
-                products = parsed;
-                console.log(`[POST PARSER] Successfully parsed products for ${post.id} into an array.`);
-            } else {
-                console.warn(`[POST PARSER] Parsed products for ${post.id}, but result is not an array. Type: ${typeof parsed}`);
+            if (!Array.isArray(parsed)) {
+                throw new Error(`Parsed "products" field is not an array.`);
             }
-        } else {
-             console.log(`[POST PARSER] Post ${post.id} has no products field.`);
+            products = parsed;
+        } catch (e) {
+            console.error(`[POST PARSER] CRITICAL: Failed to parse products for post ID ${post.id}. Value: ${post.products}. Error:`, e.message);
+            // Re-throw the error to be handled by the controller, providing clear feedback.
+            throw new Error(`Data integrity issue: Failed to parse products for post ID ${post.id}. Please check the post data in the database.`);
         }
-    } catch (e) {
-        console.error(`[POST PARSER] CRITICAL: Failed to parse products for ${post.id}. Value: ${post.products}. Error:`, e.message);
     }
 
     let tags = [];
-    try {
-        console.log(`[POST PARSER] Raw tags for ${post.id}:`, post.tags);
-        console.log(`[POST PARSER] Type of tags: ${typeof post.tags}`);
-        if (post.tags) {
+    if (post.tags) {
+        try {
             const parsed = JSON.parse(post.tags);
-            if (Array.isArray(parsed)) {
-                tags = parsed;
-                console.log(`[POST PARSER] Successfully parsed tags for ${post.id} into an array.`);
-            } else {
-                console.warn(`[POST PARSER] Parsed tags for ${post.id}, but result is not an array. Type: ${typeof parsed}`);
+            if (!Array.isArray(parsed)) {
+                throw new Error(`Parsed "tags" field is not an array.`);
             }
-        } else {
-             console.log(`[POST PARSER] Post ${post.id} has no tags field.`);
+            tags = parsed;
+        } catch (e) {
+            console.error(`[POST PARSER] CRITICAL: Failed to parse tags for post ID ${post.id}. Value: ${post.tags}. Error:`, e.message);
+            throw new Error(`Data integrity issue: Failed to parse tags for post ID ${post.id}. Please check the post data in the database.`);
         }
-    } catch (e) {
-        console.error(`[POST PARSER] CRITICAL: Failed to parse tags for ${post.id}. Value: ${post.tags}. Error:`, e.message);
     }
-    
-    console.log(`[POST PARSER] --- Finished parsing post ID: ${post.id} ---`);
 
     return {
         ...post,
