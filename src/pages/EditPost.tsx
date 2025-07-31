@@ -205,7 +205,44 @@ const EditPost: React.FC = () => {
         } finally {
             setStatus('idle');
         }
-    }
+    };
+
+    const handleDownloadImage = async () => {
+        if (!post.heroImageUrl) return;
+
+        const getFilenameFromUrl = (url: string) => {
+            try {
+                const pathname = new URL(url).pathname;
+                const parts = pathname.split('/');
+                const lastPart = parts[parts.length - 1];
+                if (lastPart && lastPart.includes('.')) {
+                    return lastPart;
+                }
+            } catch (e) { /* Ignore URL parsing errors */ }
+            return 'hero-image.jpg';
+        };
+
+        const filename = getFilenameFromUrl(post.heroImageUrl);
+
+        try {
+            const response = await fetch(post.heroImageUrl);
+            if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        } catch (error) {
+            console.error("Direct download failed, likely due to CORS policy:", error);
+            window.open(post.heroImageUrl, '_blank')?.focus();
+            alert("Could not download image automatically due to security restrictions.\n\nThe image has been opened in a new tab for you to save manually.");
+        }
+    };
     
     if (status === 'loading') {
         return <LoadingOverlay message="Loading Post..." />;
@@ -264,6 +301,22 @@ const EditPost: React.FC = () => {
                     </Card>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
+                    <Card>
+                        <h2 className="text-xl font-semibold text-white mb-4">Hero Image</h2>
+                        {post.heroImageUrl ? (
+                            <>
+                                <img src={post.heroImageUrl} alt="Post hero" className="rounded-lg w-full h-auto mb-4 border border-slate-700" />
+                                <p className="text-xs text-slate-400 mb-4">
+                                    For platforms like Blogger, download and re-upload this image to your post to ensure it appears as a thumbnail.
+                                </p>
+                                <Button onClick={handleDownloadImage} className="w-full" variant="secondary">
+                                    Download Hero Image
+                                </Button>
+                            </>
+                        ) : (
+                            <p className="text-slate-400">No hero image was generated for this post.</p>
+                        )}
+                    </Card>
                     <Card>
                         <h2 className="text-xl font-semibold text-white mb-4">Post Details</h2>
                         <div className="space-y-4">
