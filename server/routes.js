@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as postController from './controllers/postController.js';
 import * as productController from './controllers/productController.js';
+import * as templateService from './services/templateService.js';
 import { getDb } from './database.js';
 
 const router = Router();
@@ -74,29 +75,36 @@ router.get('/api-key', async (req, res) => {
 
 // --- Template Routes ---
 router.get('/templates', async (req, res) => {
-  const db = await getDb();
-  const templates = await db.all('SELECT * FROM templates ORDER BY name');
-  res.json(templates);
+  try {
+    const templates = await templateService.getAllTemplates();
+    res.json(templates);
+  } catch (e) {
+    console.error('Failed to get templates:', e);
+    res.status(500).json({ message: 'Failed to get templates' });
+  }
 });
 
 router.post('/templates', async (req, res) => {
-  const { id, name, prompt } = req.body;
-  const db = await getDb();
-  if (id) { // Update
-    await db.run('UPDATE templates SET name = ?, prompt = ? WHERE id = ?', name, prompt, id);
-     res.status(200).json({ success: true, id });
-  } else { // Create
-    const newId = crypto.randomUUID();
-    await db.run('INSERT INTO templates (id, name, prompt) VALUES (?, ?, ?)', newId, name, prompt);
-    res.status(201).json({ success: true, id: newId });
+  try {
+    const templateData = req.body;
+    const result = await templateService.saveTemplate(templateData);
+    const status = templateData.id ? 200 : 201;
+    res.status(status).json(result);
+  } catch (e) {
+    console.error('Failed to save template:', e);
+    res.status(500).json({ message: 'Failed to save template' });
   }
 });
 
 router.delete('/templates/:id', async (req, res) => {
-  const { id } = req.params;
-  const db = await getDb();
-  await db.run('DELETE FROM templates WHERE id = ?', id);
-  res.json({ success: true });
+  try {
+    const { id } = req.params;
+    const result = await templateService.deleteTemplate(id);
+    res.json(result);
+  } catch (e) {
+    console.error(`Failed to delete template with id ${req.params.id}:`, e);
+    res.status(500).json({ message: 'Failed to delete template' });
+  }
 });
 
 export default router;
