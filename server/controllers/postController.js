@@ -29,7 +29,7 @@ export const getPostById = async (req, res) => {
         } else {
             res.status(404).json({ message: 'Post not found' });
         }
-    } catch (error) => {
+    } catch (error) {
         handle_error(res, error);
     }
 };
@@ -49,7 +49,7 @@ export const deletePostById = async (req, res) => {
         const { id } = req.params;
         const result = await postService.deletePostById(id);
         res.json(result);
-    } catch (error) => {
+    } catch (error) {
         handle_error(res, error);
     }
 };
@@ -62,7 +62,7 @@ export const deleteMultiplePosts = async (req, res) => {
         }
         const result = await postService.deleteMultiplePostsByIds(ids);
         res.json(result);
-    } catch (error) => {
+    } catch (error) {
         handle_error(res, error);
     }
 };
