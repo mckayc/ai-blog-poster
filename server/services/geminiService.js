@@ -119,7 +119,7 @@ Respond ONLY with a single, minified JSON array of strings, like ["tag1", "tag2"
 };
 
 
-export const generateBlogPostStream = async (options) => {
+export const generateBlogPost = async (options) => {
     const {
         products,
         instructions,
@@ -147,17 +147,17 @@ export const generateBlogPostStream = async (options) => {
     
     // --- Dynamic Section Generation ---
     const getComparisonCardsHtml = () => `
-        <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">Specification Comparison</h2>
+        <h2 style="font-size: 1.5rem; font-weight: bold; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">Specification Comparison</h2>
         <!-- A 'Comparison Card' is a self-contained HTML table used to compare a single feature. You MUST use this format to ensure it displays correctly in all editors. -->
         <!-- Example for one feature:
-        <table style="width:100%; border-collapse: separate; border-spacing: 0; background-color: #2d3748; border-radius: 8px; margin-bottom: 12px; border: 1px solid #4a5568; font-family: sans-serif;">
+        <table style="width:100%; border-collapse: separate; border-spacing: 0; background-color: #f9fafb; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e5e7eb; font-family: sans-serif;">
           <thead>
-            <tr><th colspan="2" style="padding: 12px 16px; font-size: 1rem; color: #a0aec0; font-weight: normal; border-bottom: 1px solid #4a5568; text-align: left;">Feature Name (e.g., Screen Size)</th></tr>
+            <tr><th colspan="2" style="padding: 12px 16px; font-size: 1rem; color: #6b7280; font-weight: normal; border-bottom: 1px solid #e5e7eb; text-align: left;">Feature Name (e.g., Screen Size)</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top; border-right: 1px solid #4a5568;"><p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 1</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 1 Name</p></td>
-              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top;"><p style="margin: 0; font-size: 1.1rem; color: #ffffff; font-weight: bold;">Value for Product 2</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #a0aec0;">Product 2 Name</p></td>
+              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top; border-right: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 1.1rem; color: #111827; font-weight: bold;">Value for Product 1</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6b7280;">Product 1 Name</p></td>
+              <td style="padding: 16px; text-align: center; width: 50%; vertical-align: top;"><p style="margin: 0; font-size: 1.1rem; color: #111827; font-weight: bold;">Value for Product 2</p><p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #6b7280;">Product 2 Name</p></td>
             </tr>
           </tbody>
         </table>
@@ -166,16 +166,16 @@ export const generateBlogPostStream = async (options) => {
     `;
     
     const getPhotoComparisonHtml = () => `
-        <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">At a Glance</h2>
-        <div style="display:flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; padding: 16px; background-color: #2d3748; border-radius: 8px;">
+        <h2 style="font-size: 1.5rem; font-weight: bold; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">At a Glance</h2>
+        <div style="display:flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; padding: 16px; background-color: #f9fafb; border-radius: 8px;">
             ${products.map(p => `
             <div style="text-align: center; max-width: 200px;">
                 <a href="${p.affiliateLink || '#'}" style="text-decoration: none;">
-                    <img src="${p.imageUrl}" alt="${p.name}" style="width: 200px; height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #4a5568;" />
+                    <img src="${p.imageUrl}" alt="${p.name}" style="width: 200px; height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #e5e7eb;" />
                 </a>
-                <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: #a0aec0;">${p.brand || ''}</p>
-                <h4 style="margin: 4px 0 0 0; font-size: 1rem; color: #ffffff;">
-                    <a href="${p.affiliateLink || '#'}" style="color: #ffffff; text-decoration: none;">${p.name}</a>
+                <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: #6b7280;">${p.brand || ''}</p>
+                <h4 style="margin: 4px 0 0 0; font-size: 1rem; color: #1f2937;">
+                    <a href="${p.affiliateLink || '#'}" style="color: #1f2937; text-decoration: none;">${p.name}</a>
                 </h4>
             </div>
             `).join('')}
@@ -207,10 +207,10 @@ export const generateBlogPostStream = async (options) => {
       4.  **No Prices:** Do NOT include specific prices in the content. Instead, guide the user to check the current price via an affiliate link.
       5.  **Hero Image:** For "heroImageUrl", select the most visually appealing product image URL from the provided Product Information.
       6.  **SEO Tags:** For "tags", generate an array of 5-7 relevant SEO keywords for the post.
-      7.  **HTML Content & Styling:** The "content" value must be a string of clean, well-structured HTML. Use inline CSS for styling to ensure compatibility. When using blockquotes, style them with a left border and padding (e.g., style="border-left: 4px solid #cccccc; padding-left: 1rem; margin-left: 1rem; font-style: italic;").
+      7.  **HTML Content & Styling (LIGHT THEME):** The "content" value must be a string of clean, well-structured HTML. Use inline CSS for styling to ensure compatibility with a standard light-background editor (like WordPress). Use dark text colors (e.g., #1f2937, #374151) and standard blue links (e.g., #2563eb).
       8.  **In-Content Images:** For each product discussed, embed its specific image BEFORE its description using an \`<img>\` tag.
       9.  **Affiliate Links:** Integrate affiliate links naturally. The primary link text should be the product's title (e.g., <a href="...">Sony WH-1000XM5</a>). For variety, use the text: "{{CTA_TEXT}}".
-      10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #888888; text-align: center;">{{FOOTER_TEXT}}</p>\`.
+      10. **Footer:** The VERY LAST element in the HTML string MUST be a footer: \`<p style="font-size: small; color: #6b7280; text-align: center;">{{FOOTER_TEXT}}</p>\`.
       11. **Follow ALL Instructions:** Adhere to all instructions for each section.
 
       ---
@@ -223,14 +223,14 @@ export const generateBlogPostStream = async (options) => {
 
       {{PLACEMENT_BEGINNING}}
 
-      <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff;">Introduction</h2>
+      <h2 style="font-size: 1.5rem; font-weight: bold; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">Introduction</h2>
       <!-- Generate the introduction here based on the 'Introduction Instructions' below. -->
 
       <!-- Generate a detailed section for each product based on the 'Product Description Instructions' below. -->
 
       {{PLACEMENT_MIDDLE}}
 
-      <h2 style="font-size: 1.5rem; font-weight: bold; color: #ffffff; border-bottom: 2px solid #4a5568; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">The Verdict</h2>
+      <h2 style="font-size: 1.5rem; font-weight: bold; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px;">The Verdict</h2>
       <!-- Generate a final "Verdict" or "Recommendation" section summarizing which product is best for different types of users. -->
 
       {{PLACEMENT_END}}
@@ -289,7 +289,7 @@ export const generateBlogPostStream = async (options) => {
         required: ["title", "heroImageUrl", "content", "tags"]
     };
 
-    const response = await ai.models.generateContentStream({
+    const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: finalPrompt,
         config: {
@@ -298,5 +298,5 @@ export const generateBlogPostStream = async (options) => {
         }
     });
     
-    return response;
+    return JSON.parse(response.text.trim());
 };

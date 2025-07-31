@@ -26,7 +26,7 @@ router.post('/products/fetch-and-save', productController.fetchAndSaveProduct);
 
 
 // --- Gemini API Proxy Routes ---
-router.post('/gemini/generate-post-stream', postController.generatePostStream);
+router.post('/gemini/generate-post', postController.generatePost);
 router.post('/gemini/generate-title', postController.generateTitleIdea);
 router.post('/gemini/generate-tags', postController.generateTags);
 router.post('/test-connection', postController.testConnection);

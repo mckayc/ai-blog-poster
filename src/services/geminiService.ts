@@ -1,9 +1,8 @@
-
 import { Product } from '../types';
 
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({ message: 'An unknown API error occurred' }));
         throw new Error(error.message || 'An API error occurred');
     }
     return res.json();
@@ -32,25 +31,20 @@ export interface GenerationOptions {
     photoComparison: { enabled: boolean; placement: Record<string, boolean> };
 }
 
-export const generatePostStream = async (options: GenerationOptions): Promise<Response> => {
-    const response = await fetch('/api/gemini/generate-post-stream', {
+export interface GenerationResponse {
+    title: string;
+    heroImageUrl: string;
+    content: string;
+    tags: string[];
+}
+
+// Replaces generatePostStream with a more robust, non-streaming version.
+export const generateFullPost = async (options: GenerationOptions): Promise<GenerationResponse> => {
+    return fetch('/api/gemini/generate-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options)
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        let error;
-        try {
-            error = JSON.parse(errorText);
-        } catch(e) {
-            error = { message: errorText || 'An unknown API error occurred during streaming setup.' };
-        }
-        throw new Error(error.message);
-    }
-
-    return response;
+    }).then(handleResponse);
 };
 
 export const generateTitleIdea = async (products: Product[]): Promise<string[]> => {

@@ -67,7 +67,7 @@ export const deleteMultiplePosts = async (req, res) => {
     }
 };
 
-export const generatePostStream = async (req, res) => {
+export const generatePost = async (req, res) => {
     try {
         const options = req.body;
         
@@ -79,20 +79,11 @@ export const generatePostStream = async (req, res) => {
             }
         }
 
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Transfer-Encoding', 'chunked');
-
-        const stream = await geminiService.generateBlogPostStream({ ...options, templatePrompt });
-
-        for await (const chunk of stream) {
-            res.write(chunk.text);
-        }
-        res.end();
+        const result = await geminiService.generateBlogPost({ ...options, templatePrompt });
+        res.json(result);
 
     } catch (error) {
-        console.error("--- STREAMING CONTROLLER ERROR ---");
-        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        res.status(500).end(`STREAM_ERROR: ${error.message}`);
+        handle_error(res, error);
     }
 };
 

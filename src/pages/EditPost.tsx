@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Editor } from '@tinymce/tinymce-react';
-import { BlogPost } from '../types';
+import { BlogPost, Product } from '../types';
 import * as db from '../services/dbService';
 import * as gemini from '../services/geminiService';
 import Card from '../components/common/Card';
@@ -47,62 +47,33 @@ const EditPost: React.FC = () => {
     const [generationDetails, setGenerationDetails] = useState('');
     const [generationError, setGenerationError] = useState('');
 
-    const generateStream = useCallback(async (options: Omit<gemini.GenerationOptions, 'products'>) => {
-        if (!post.id || !post.products) return;
-
+    const generateAndSavePost = useCallback(async (postIdToUpdate: string, productsToUse: Product[], options: Omit<gemini.GenerationOptions, 'products'>) => {
         setStatus('generating');
-        setGenerationDetails('Sending request to AI...');
+        setGenerationDetails('Generating post with AI... This may take a moment.');
         setGenerationError('');
         
-        let accumulatedContent = '';
-
         try {
-            const response = await gemini.generatePostStream({ ...options, products: post.products });
+            const finalData = await gemini.generateFullPost({ ...options, products: productsToUse });
             
-            if (!response.body) throw new Error("Response body is missing");
+            setGenerationDetails('AI finished. Saving post...');
+            
+            const postToSave = {
+                ...post,
+                ...finalData,
+                id: postIdToUpdate,
+            } as BlogPost;
 
-            const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-            
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                accumulatedContent += value;
-                setGenerationDetails(`Receiving data from AI (${accumulatedContent.length} bytes)...`);
-            }
-            
-            setGenerationDetails('AI finished. Parsing and rendering content...');
-            
-            const finalData = JSON.parse(accumulatedContent);
-
-            let finalPost: BlogPost | undefined;
-            // Use functional update to get latest state
-            setPost(currentPost => {
-                finalPost = { ...currentPost, ...finalData, id: currentPost.id } as BlogPost;
-                return finalPost;
-            });
-            
-            setStatus('saving');
-            setGenerationDetails('Finalizing and saving post...');
-            
-            // Wait a tick for state to update before saving
-            await new Promise(resolve => setTimeout(resolve, 0));
-            if (finalPost) {
-                await db.updatePost(finalPost);
-            }
+            await db.updatePost(postToSave);
+            setPost(postToSave);
             
         } catch (err: any) {
-            console.error("Streaming generation failed:", err);
-            const errorMessage = err.message.includes('JSON') 
-                ? "Failed to parse the final data from the AI. The response might have been incomplete or malformed."
-                : err.message;
-            setGenerationError(errorMessage);
+            console.error("Post generation failed:", err);
+            setGenerationError(err.message || "An unknown error occurred during generation.");
         } finally {
             setStatus('idle');
             setGenerationDetails('');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [post.id, JSON.stringify(post.products)]);
+    }, [post]);
 
     useEffect(() => {
         const fetchPost = async () => {
@@ -126,7 +97,7 @@ const EditPost: React.FC = () => {
                             photoComparison: JSON.parse(params.get('photoComparison') || 'null') || { enabled: false },
                         };
                         
-                        await generateStream(generationOptions);
+                        await generateAndSavePost(fetchedPost.id, fetchedPost.products, generationOptions);
                         navigate(`/edit/${postId}`, { replace: true });
                     }
                 } catch (error) {
@@ -244,13 +215,14 @@ const EditPost: React.FC = () => {
                             key={post.id || 'new'}
                             initialValue={post.content}
                             init={{
-                                skin: 'oxide-dark',
-                                content_css: 'dark',
+                                // Use the default light theme which is more robust for self-hosting.
+                                skin: 'oxide',
+                                content_css: 'default',
                                 height: '100%',
                                 menubar: false,
                                 plugins: 'autoresize advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount',
                                 toolbar: 'undo redo | blocks | bold italic | alignleft aligncenter alignright | bullist numlist outdent indent | link image | code | fullscreen',
-                                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px; color: #e2e8f0; background-color: #1e293b; } a { color: #818cf8; }',
+                                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px; }',
                                 autoresize_bottom_margin: 20,
                                 image_advtab: true,
                                 image_title: true,
