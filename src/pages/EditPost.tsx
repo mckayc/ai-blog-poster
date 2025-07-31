@@ -305,6 +305,9 @@ const EditPost: React.FC = () => {
                           image_advtab: true,
                           table_toolbar: "tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol",
                           autoresize_bottom_margin: 50,
+                          // The following lines are crucial for self-hosting to find the UI skin.
+                          skin_url: '/tinymce/skins/ui/oxide',
+                          content_css: '/tinymce/skins/content/default/content.min.css'
                         }}
                     />
                 </div>
