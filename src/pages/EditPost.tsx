@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Editor } from '@tinymce/tinymce-react';
@@ -45,8 +44,8 @@ const EditPost: React.FC = () => {
 
     const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '', tags: [], asins: '' });
     const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'generating_tags' | 'idle'>('loading');
-    const [generationDetails, setGenerationDetails] = useState('');
-    const [generationError, setGenerationError] = useState('');
+    const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+    const [generationError, setGenerationError] = useState<string | null>(null);
 
     useEffect(() => {
         const loadAndProcessPost = async () => {
@@ -66,53 +65,76 @@ const EditPost: React.FC = () => {
 
                 if (isNewPostFromGenerator && !generationTriggered.current) {
                     generationTriggered.current = true;
-
                     setStatus('generating');
-                    setGenerationDetails('Communicating with the AI... This may take a moment.');
-                    setGenerationError('');
+                    setGenerationLogs([]);
+                    setGenerationError(null);
 
-                    try {
-                        const generationOptions = {
-                            instructions: params.get('instructions') || '',
-                            templateId: params.get('templateId') || 'default',
-                            introductionStyle: params.get('introductionStyle') || 'Full',
-                            introductionTone: params.get('introductionTone') || 'Friendly',
-                            descriptionStyle: params.get('descriptionStyle') || 'Detailed Paragraphs',
-                            descriptionTone: params.get('descriptionTone') || 'Professional',
-                            comparisonCards: JSON.parse(params.get('comparisonCards') || 'null') || { enabled: false },
-                            photoComparison: JSON.parse(params.get('photoComparison') || 'null') || { enabled: false },
-                        };
-                        const productsToUse = fetchedPost.products || [];
+                    const addLog = (message: string, delay: number = 150): Promise<void> => {
+                        return new Promise(resolve => {
+                            setTimeout(() => {
+                                setGenerationLogs(prev => [...prev, message]);
+                                resolve();
+                            }, delay);
+                        });
+                    };
 
-                        if (productsToUse.length === 0) {
-                            throw new Error("Cannot generate post. No products are associated with this entry.");
+                    const runGeneration = async () => {
+                        try {
+                            await addLog('[CLIENT] Initializing AI generation sequence...', 0);
+                            
+                            const generationOptions = {
+                                instructions: params.get('instructions') || '',
+                                templateId: params.get('templateId') || 'default',
+                                introductionStyle: params.get('introductionStyle') || 'Full',
+                                introductionTone: params.get('introductionTone') || 'Friendly',
+                                descriptionStyle: params.get('descriptionStyle') || 'Detailed Paragraphs',
+                                descriptionTone: params.get('descriptionTone') || 'Professional',
+                                comparisonCards: JSON.parse(params.get('comparisonCards') || 'null') || { enabled: false },
+                                photoComparison: JSON.parse(params.get('photoComparison') || 'null') || { enabled: false },
+                            };
+                            await addLog('[CLIENT] Parsed generation parameters from URL.');
+
+                            const productsToUse = fetchedPost.products || [];
+                            if (productsToUse.length === 0) {
+                                throw new Error("Cannot generate post. No products are associated with this entry.");
+                            }
+                            await addLog(`[CLIENT] Found ${productsToUse.length} product(s) for generation.`);
+                            await addLog('[CLIENT] Sending generation request to server...');
+
+                            const generationPromise = gemini.generateFullPost({ ...generationOptions, products: productsToUse });
+                            await addLog('[SERVER] AI generation in progress... this can take up to a minute.', 500);
+                            
+                            const finalData = await generationPromise;
+                            await addLog('[CLIENT] Received successful response from server.');
+
+                            if (!finalData || !finalData.content || finalData.content.trim().length < 50) {
+                                throw new Error("The AI returned empty or insufficient content. This can happen due to safety filters or if the request was unclear. Please try modifying your instructions on the generator page.");
+                            }
+                            await addLog('[CLIENT] AI content validated.');
+                            
+                            await addLog('[CLIENT] Saving generated content to post...');
+                            const postToSave = { ...fetchedPost, ...finalData };
+                            await db.updatePost(postToSave);
+                            setPost(postToSave);
+                            
+                            await addLog('[SUCCESS] Post generated and saved successfully!', 500);
+                            await addLog('[CLIENT] Loading editor...', 1000);
+
+                            setTimeout(() => {
+                                setStatus('idle');
+                                navigate(`/edit/${postId}`, { replace: true });
+                            }, 1500);
+
+                        } catch (genError: any) {
+                            console.error("Post generation failed:", genError);
+                            const errorMessage = `AI generation failed: ${genError.message || "An unknown error occurred."}\nCheck container logs for details.`;
+                            await addLog(`[ERROR] ${errorMessage}`, 0);
+                            setGenerationError('The generation process failed. See logs for details.');
                         }
+                    };
 
-                        const finalData = await gemini.generateFullPost({ ...generationOptions, products: productsToUse });
-                        
-                        if (!finalData || !finalData.content || finalData.content.trim().length < 50) {
-                            throw new Error("The AI returned empty or insufficient content. This can happen due to safety filters or if the request was unclear. Please try modifying your instructions on the generator page.");
-                        }
+                    runGeneration();
 
-                        setGenerationDetails('AI finished. Saving post...');
-                        
-                        const postToSave = {
-                            ...fetchedPost,
-                            ...finalData,
-                        };
-
-                        await db.updatePost(postToSave);
-                        setPost(postToSave);
-                        
-                        setStatus('idle');
-                        navigate(`/edit/${postId}`, { replace: true });
-
-                    } catch (genError: any) {
-                        console.error("Post generation failed:", genError);
-                        const errorMessage = `AI generation failed. This could be due to a network issue, an invalid API key, or a problem with the AI model's response. Please check the container logs for detailed errors.\n\nError: ${genError.message || "An unknown error occurred."}`;
-                        setGenerationError(errorMessage);
-                        setStatus('generating'); // Keep overlay up to show the error
-                    }
                 } else {
                     setStatus('idle');
                 }
@@ -189,7 +211,7 @@ const EditPost: React.FC = () => {
         return <LoadingOverlay message="Loading Post..." />;
     }
     if (status === 'generating') {
-        return <LoadingOverlay message="Generating Post with AI..." details={generationError || generationDetails} />;
+        return <LoadingOverlay message="Generating Post with AI..." logs={generationLogs} details={generationError} />;
     }
 
     return (
