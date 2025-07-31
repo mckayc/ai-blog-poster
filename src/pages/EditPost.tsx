@@ -12,7 +12,7 @@ import LoadingOverlay from '../components/common/LoadingOverlay';
 
 // Required imports for self-hosted TinyMCE
 import 'tinymce/tinymce';
-import 'tinymce/models/dom/model'; // Required for editor to initialize
+import 'tinymce/models/dom/model';
 import 'tinymce/themes/silver/theme';
 import 'tinymce/icons/default/icons';
 import 'tinymce/plugins/advlist';
@@ -41,54 +41,37 @@ const EditPost: React.FC = () => {
     const location = useLocation();
     const isEditing = !!postId;
     const editorRef = useRef<any>(null);
-    const hasGenerated = useRef(false);
+    const generationTriggered = useRef(false);
 
     const [post, setPost] = useState<Partial<BlogPost>>({ title: '', content: '', tags: [], asins: '' });
     const [status, setStatus] = useState<'loading' | 'saving' | 'deleting' | 'generating' | 'generating_tags' | 'idle'>('loading');
     const [generationDetails, setGenerationDetails] = useState('');
     const [generationError, setGenerationError] = useState('');
 
-    const generateAndSavePost = useCallback(async (postIdToUpdate: string, productsToUse: Product[], options: Omit<gemini.GenerationOptions, 'products'>): Promise<boolean> => {
-        setStatus('generating');
-        setGenerationDetails('Generating post with AI... This may take a moment.');
-        setGenerationError('');
-        
-        try {
-            const finalData = await gemini.generateFullPost({ ...options, products: productsToUse });
-            
-            setGenerationDetails('AI finished. Saving post...');
-            
-            const postToSave = {
-                ...post,
-                ...finalData,
-                id: postIdToUpdate,
-            } as BlogPost;
-
-            await db.updatePost(postToSave);
-            setPost(postToSave);
-            setStatus('idle');
-            setGenerationDetails('');
-            return true;
-        } catch (err: any) {
-            console.error("Post generation failed:", err);
-            const errorMessage = `AI generation failed. This could be due to a network issue, an invalid API key, or a problem with the AI model's response. Please check the container logs for detailed errors.\n\nError: ${err.message || "An unknown error occurred during generation."}`;
-            setGenerationError(errorMessage);
-            // We leave status as 'generating' so the overlay with the error remains visible.
-            return false;
-        }
-    }, [post]);
-
     useEffect(() => {
-        const fetchPost = async () => {
-            if (postId) {
-                try {
-                    const fetchedPost = await db.getPost(postId);
-                    setPost(fetchedPost);
+        const loadAndProcessPost = async () => {
+            if (!postId) {
+                setPost({ title: 'New Post', content: '<p>Start writing...</p>', tags: [] });
+                setStatus('idle');
+                return;
+            }
 
-                    const params = new URLSearchParams(location.search);
-                    if (params.get('new') === 'true' && fetchedPost.products?.length && !hasGenerated.current) {
-                        hasGenerated.current = true;
-                        
+            setStatus('loading');
+            try {
+                const fetchedPost = await db.getPost(postId);
+                setPost(fetchedPost);
+
+                const params = new URLSearchParams(location.search);
+                const isNewPostFromGenerator = params.get('new') === 'true';
+
+                if (isNewPostFromGenerator && !generationTriggered.current) {
+                    generationTriggered.current = true;
+
+                    setStatus('generating');
+                    setGenerationDetails('Communicating with the AI... This may take a moment.');
+                    setGenerationError('');
+
+                    try {
                         const generationOptions = {
                             instructions: params.get('instructions') || '',
                             templateId: params.get('templateId') || 'default',
@@ -99,30 +82,51 @@ const EditPost: React.FC = () => {
                             comparisonCards: JSON.parse(params.get('comparisonCards') || 'null') || { enabled: false },
                             photoComparison: JSON.parse(params.get('photoComparison') || 'null') || { enabled: false },
                         };
-                        
-                        const success = await generateAndSavePost(fetchedPost.id, fetchedPost.products, generationOptions);
-                        if (success) {
-                            // On success, remove the query params from URL to prevent re-generation on refresh
-                            navigate(`/edit/${postId}`, { replace: true });
+                        const productsToUse = fetchedPost.products || [];
+
+                        if (productsToUse.length === 0) {
+                            throw new Error("Cannot generate post. No products are associated with this entry.");
                         }
+
+                        const finalData = await gemini.generateFullPost({ ...generationOptions, products: productsToUse });
+                        
+                        if (!finalData || !finalData.content || finalData.content.trim().length < 50) {
+                            throw new Error("The AI returned empty or insufficient content. This can happen due to safety filters or if the request was unclear. Please try modifying your instructions on the generator page.");
+                        }
+
+                        setGenerationDetails('AI finished. Saving post...');
+                        
+                        const postToSave = {
+                            ...fetchedPost,
+                            ...finalData,
+                        };
+
+                        await db.updatePost(postToSave);
+                        setPost(postToSave);
+                        
+                        setStatus('idle');
+                        navigate(`/edit/${postId}`, { replace: true });
+
+                    } catch (genError: any) {
+                        console.error("Post generation failed:", genError);
+                        const errorMessage = `AI generation failed. This could be due to a network issue, an invalid API key, or a problem with the AI model's response. Please check the container logs for detailed errors.\n\nError: ${genError.message || "An unknown error occurred."}`;
+                        setGenerationError(errorMessage);
+                        setStatus('generating'); // Keep overlay up to show the error
                     }
-                } catch (error) {
-                    console.error("Failed to fetch post", error);
-                    alert("Failed to fetch post.");
-                    navigate('/posts');
-                } finally {
-                    if (status === 'loading') {
-                      setStatus('idle');
-                    }
+                } else {
+                    setStatus('idle');
                 }
-            } else {
-                setPost({ title: 'New Post', content: '<p>Start writing...</p>', tags: [] });
+            } catch (fetchError) {
+                console.error("Failed to fetch post", fetchError);
+                alert("Failed to fetch post.");
                 setStatus('idle');
+                navigate('/posts');
             }
         };
 
-        fetchPost();
-    }, [postId, navigate, location.search, generateAndSavePost, status]);
+        loadAndProcessPost();
+    }, [postId, location.search, navigate]);
+
 
     const handleSave = async () => {
         if (!post) return;
@@ -181,7 +185,7 @@ const EditPost: React.FC = () => {
         }
     }
     
-    if (status === 'loading' && isEditing) {
+    if (status === 'loading') {
         return <LoadingOverlay message="Loading Post..." />;
     }
     if (status === 'generating') {
